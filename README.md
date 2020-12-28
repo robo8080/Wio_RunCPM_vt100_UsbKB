@@ -1,4 +1,4 @@
-# Wio_RunPCM_vt100_UsbKB
+# Wio_RunCPM_vt100_UsbKB
 Wio Terminal‚Å“®‚­’´¬Œ^CP/Mƒ}ƒVƒ“
 
 ![‰æ‘œ1](images/image1.png)<br><br>
