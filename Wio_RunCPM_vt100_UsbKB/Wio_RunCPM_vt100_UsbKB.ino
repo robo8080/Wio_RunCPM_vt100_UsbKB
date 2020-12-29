@@ -228,14 +228,31 @@ bool isDECPrivateMode = false; // DEC Private Mode (<ESC> [ ?)
 union MODE mode = {defaultMode};
 union MODE_EX mode_ex = {defaultModeEx};
 
+/********************************************
+キーボードと Wio Terminal のボタンとスイッチの対応
++------------+--------------+-----------+
+| キーボード | Wio Terminal | ESC SEQ   |
++------------+--------------+-----------+
+| [F3]       | WIO_KEY_C    | [ESC] [ P |
+| [F4]       | WIO_KEY_B    | [ESC] [ Q |
+| [F5]       | WIO_KEY_A    | [ESC] [ R |
+| [UP]       | WIO_5S_UP    | [ESC] [ A |
+| [DOWN]     | WIO_5S_DOWN  | [ESC] [ B |
+| [RIGHT]    | WIO_5S_RIGHT | [ESC] [ C |
+| [LEFT]     | WIO_5S_LEFT  | [ESC] [ D |
+| [ENTER]    | WIO_5S_PRESS | [CR]      |
++------------+--------------+-----------+
+********************************************/
 // スイッチ情報
+enum WIO_SW {SW_UP, SW_DOWN, SW_RIGHT, SW_LEFT, SW_PRESS};
 PROGMEM const int SW_PORT[5] = {WIO_5S_UP, WIO_5S_DOWN, WIO_5S_RIGHT, WIO_5S_LEFT, WIO_5S_PRESS}; 
-PROGMEM const String SW_CMD[5] = {"\e[A", "\e[B", "\e[C", "\e[D", "\r"}; 
+PROGMEM const char SW_CMD[5][5] = {"\e[A", "\e[B", "\e[C", "\e[D", "\r"}; 
 bool prev_sw[5] = {false, false, false, false, false};
 
 // ボタン情報
+enum WIO_BTN {BT_A, BT_B, BT_C};
 PROGMEM const int BTN_PORT[3] = {WIO_KEY_A, WIO_KEY_B, WIO_KEY_C}; 
-PROGMEM const String BTN_CMD[3] = {"\e[P", "\e[Q", "\e[R"}; 
+PROGMEM const char BTN_CMD[3][5] = {"\e[R", "\e[Q", "\e[P"}; 
 bool prev_btn[3] = {false, false, false};
 
 // 前回位置情報
@@ -276,44 +293,43 @@ void printKey() {
   char c = keyboard.getKey();
   needCursorUpdate = c;
   if (needCursorUpdate) {
-//    TermSerial.print(c);
     xQueueSend(xQueue, &c, 0);
   } else {
     needCursorUpdate = true;
     int key = keyboard.getOemKey();
     int mod = keyboard.getModifiers();
     switch (key) {
-      case 60: // F1
-//        TermSerial.print(F("\e[Q"));
-        printString("\e[Q");
+      case 60: // F3 (Wio Button #3)
+        for (int l=0; l<3; l++)
+          xQueueSend(xQueue, &BTN_CMD[BT_C][l], 0);
         break;
-      case 61: // F2
-//        TermSerial.print(F("\e[R"));
-        printString("");
+      case 61: // F4 (Wio Button #2)
+        for (int l=0; l<3; l++)
+          xQueueSend(xQueue, &BTN_CMD[BT_B][l], 0);
         break;
-      case 62: // F3
-//        TermSerial.print(F("\e[S"));
-        printString("\e[S");
+      case 62: // F5 (Wio Button #1)
+        for (int l=0; l<3; l++)
+          xQueueSend(xQueue, &BTN_CMD[BT_A][l], 0);
         break;
       case 76: // DEL
-//        TermSerial.print(char(127));
-        printChar(char(127));
+        c = char(127);
+        xQueueSend(xQueue, &c, 0); 
         break;
-      case 79: // RIGHT
-//        TermSerial.print(F("\e[C"));
-        printString("\e[C");
+      case 79: // RIGHT (Wio Switch #3)
+        for (int l=0; l<3; l++)
+          xQueueSend(xQueue, &SW_CMD[SW_RIGHT][l], 0);
         break;
-      case 80: // LEFT
-//        TermSerial.print(F("\e[D"));
-        printString("\e[D");
+      case 80: // LEFT (Wio Switch #4)
+        for (int l=0; l<3; l++)
+          xQueueSend(xQueue, &SW_CMD[SW_LEFT ][l], 0);
         break;
-      case 81: // DOWN
-//        TermSerial.print(F("\e[B"));
-        printString("\e[B");
+      case 81: // DOWN (Wio Switch #2)
+        for (int l=0; l<3; l++)
+          xQueueSend(xQueue, &SW_CMD[SW_DOWN ][l], 0);
         break;
-      case 82: // UP
-//        TermSerial.print(F("\e[A"));
-        printString("\e[A");
+      case 82: // UP (Wio Switch #1)
+        for (int l=0; l<3; l++)
+          xQueueSend(xQueue, &SW_CMD[SW_UP   ][l], 0);
         break;
       default:
         needCursorUpdate = false;
@@ -1616,8 +1632,8 @@ void loop() {
       prev_sw[i] = true;
     } else {
       if (prev_sw[i]){
-//        TermSerial.print(SW_CMD[i]);
-        printString(SW_CMD[i].c_str());
+        for (int l=0; l<3; l++)
+          xQueueSend(xQueue, &SW_CMD[i][l], 0);
         needCursorUpdate = true;
       }
       prev_sw[i] = false;
@@ -1630,8 +1646,8 @@ void loop() {
       prev_btn[i] = true;
     } else {
       if (prev_btn[i]){
-//        TermSerial.print(BTN_CMD[i]);
-        printString(BTN_CMD[i].c_str());
+        for (int l=0; l<3; l++)
+          xQueueSend(xQueue, &BTN_CMD[i][l], 0);
         needCursorUpdate = true;
       }
       prev_btn[i] = false;
