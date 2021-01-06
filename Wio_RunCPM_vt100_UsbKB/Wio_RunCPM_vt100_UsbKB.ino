@@ -1,8 +1,8 @@
 //------VT100_WT---------------------------------------------------------
 #include <Arduino.h>
 #include <Seeed_Arduino_FreeRTOS.h>
-#include <TFT_eSPI.h>               // Hardware-specific library
 #include <SPI.h>
+#include <LovyanGFX.hpp>
 #include <SAMD51_InterruptTimer.h>
 #include <Reset.h>
 #include <KeyboardController.h>
@@ -14,18 +14,8 @@
 
 //------RunCPM-----------------------------------------------------------
 #include "globals.h"
+#include <SdFat.h>
 
-//#include <SPI.h>
-
-#ifdef ARDUINO_TEENSY41
-  #include <SdFat-beta.h>
-#else
-  #include <SdFat.h>  // One SD library to rule them all - Greinman SdFat from Library Manager
-#endif
-
-// Board definitions go into the "hardware" folder
-// Choose/change a file from there
-//#include "hardware/esp32.h"
 #include "hardware/wioterm.h"
 
 // Delays for LED blinking
@@ -78,8 +68,8 @@ int lst_open = FALSE;
 #define LED_04  D5
 */
 
-// TFT 制御用
-TFT_eSPI tft;
+// LCD 制御用
+static LGFX lcd;
 
 // USB 制御用
 USBHost usb;
@@ -359,21 +349,19 @@ void sc_updateChar(uint16_t x, uint16_t y) {
   if (mode_ex.Flgs.ScreenReverse) swap(fore, back);
   uint16_t xx = x * CH_W;
   uint16_t yy = y * CH_H;
-
-  tft.startWrite();
-  tft.setAddrWindow(xx + MARGIN_LEFT, yy + MARGIN_TOP, CH_W, CH_H);
+  lcd.startWrite(); 
   for (uint8_t i = 0; i < CH_H; i++) {
     bool prev = (a.Bits.Underline && (i == MAX_CH_Y));
     for (uint8_t j = 0; j < CH_W; j++) {
       bool pset = ((*ptr) & (0x80 >> j));
       uint16_t d = (pset || prev) ? fore : back;
-      tft.pushColor(d);
+      lcd.drawPixel(MARGIN_LEFT + xx + j, MARGIN_TOP + yy + i, d);
       if (a.Bits.Bold)
         prev = pset;
     }
     ptr++;
   }
-  tft.endWrite();
+  lcd.endWrite(); 
 }
 
 // カーソルの描画
@@ -381,13 +369,7 @@ void drawCursor(uint16_t x, uint16_t y) {
   uint16_t xx = x * CH_W;
   uint16_t yy = y * CH_H;
   
-  tft.startWrite();
-  tft.setAddrWindow(xx + MARGIN_LEFT, yy + MARGIN_TOP, CH_W, CH_H);
-  for (uint8_t i = 0; i < CH_H; i++) {
-    for (uint8_t j = 0; j < CH_W; j++)
-      tft.pushColor(ILI9341_WHITE);
-  }
-  tft.endWrite();
+  lcd.fillRect(MARGIN_LEFT + xx, MARGIN_TOP + yy, CH_W, CH_H, (uint16_t)ILI9341_WHITE);
 }
 
 // カーソルの表示
@@ -409,19 +391,18 @@ void dispCursor(bool forceupdate) {
   needCursorUpdate = false;
 }
 
-// 指定行をTFT画面に反映
+// 指定行をLCD画面に反映
 // 引数
 //  ln:行番号（0～29)
 void sc_updateLine(uint16_t ln) {
   uint8_t c;
   uint8_t dt;
-//uint16_t buf[2][SP_W];
+  uint16_t buf[2][SP_W];
   uint16_t cnt, idx;
   union ATTR a;
   union COLOR l;
-
   for (uint16_t i = 0; i < CH_H; i++) {            // 1文字高さ分ループ
-    cnt = 0;
+    cnt = 0; 
     for (uint16_t clm = 0; clm < SC_W; clm++) {    // 横文字数分ループ
       idx = ln * SC_W + clm;
       c  = screen[idx];                            // キャラクタの取得
@@ -435,14 +416,13 @@ void sc_updateLine(uint16_t ln) {
       bool prev = (a.Bits.Underline && (i == MAX_CH_Y));
       for (uint16_t j = 0; j < CH_W; j++) {
         bool pset = dt & (0x80 >> j);
-//      buf[i & 1][cnt] = (pset || prev) ? fore : back;
-        tft.pushColor((pset || prev) ? fore : back);// pushColors() の挙動がおかしいので pushColor()で代替
+        buf[i & 1][cnt] = (pset || prev) ? fore : back;
         if (a.Bits.Bold)
           prev = pset;
-        cnt++;
+        cnt++;  
       }
     }
-//  tft.pushColors(buf[i & 1], SP_W, true);
+    lcd.pushPixels(buf[i & 1], SP_W, true);
   }
 }
 
@@ -483,11 +463,9 @@ void scroll() {
       attrib[idx2] = defaultAttr.value;
       colors[idx2] = defaultColor.value;
     }
-    tft.startWrite();
-    tft.setAddrWindow(MARGIN_LEFT, M_TOP * CH_H + MARGIN_TOP, SP_W, ((M_BOTTOM + 1) * CH_H) - (M_TOP * CH_H));
+    lcd.setAddrWindow(MARGIN_LEFT, M_TOP * CH_H + MARGIN_TOP, SP_W, ((M_BOTTOM + 1) * CH_H) - (M_TOP * CH_H));
     for (uint8_t y = M_TOP; y <= M_BOTTOM; y++)
       sc_updateLine(y);
-    tft.endWrite();  
     YP = M_BOTTOM;
   }
 }
@@ -887,7 +865,8 @@ void identify() {
 
 // RIS (Reset To Initial State) リセット
 void resetToInitialState() {
-  tft.fillScreen(aColors[defaultColor.Color.Background]);
+  lcd.fillScreen((uint16_t)aColors[defaultColor.Color.Background]);
+//lcd.fillRect(0, 0, RSP_W, RSP_H, (uint16_t)aColors[defaultColor.Color.Background]);
   initCursorAndAttribute();
   eraseInDisplay(2);
 }
@@ -932,12 +911,9 @@ void cursorPosition(uint8_t y, uint8_t x) {
 
 // 画面を再描画
 void refreshScreen() {
-
-  tft.startWrite();
-  tft.setAddrWindow(MARGIN_LEFT, MARGIN_TOP, SP_W, SP_H);
+  lcd.setAddrWindow(MARGIN_LEFT, MARGIN_TOP, SP_W, SP_H);
   for (uint8_t i = 0; i < SC_H; i++)
     sc_updateLine(i);
-  tft.endWrite();  
 }
 
 // ED (Erase In Display): 画面を消去
@@ -973,11 +949,9 @@ void eraseInDisplay(uint8_t m) {
     memset(&screen[idx], 0x00, n);
     memset(&attrib[idx], defaultAttr.value, n);
     memset(&colors[idx], defaultColor.value, n);
-    tft.startWrite();
-    tft.setAddrWindow(MARGIN_LEFT, sl * CH_H + MARGIN_TOP, SP_W, ((el + 1) * CH_H) - (sl * CH_H));
+    lcd.setAddrWindow(MARGIN_LEFT, sl * CH_H + MARGIN_TOP, SP_W, ((el + 1) * CH_H) - (sl * CH_H));
     for (uint8_t i = sl; i <= el; i++)
       sc_updateLine(i);
-    tft.endWrite();  
   }
 }
 
@@ -1008,10 +982,8 @@ void eraseInLine(uint8_t m) {
     memset(&screen[slp], 0x00, n);
     memset(&attrib[slp], defaultAttr.value, n);
     memset(&colors[slp], defaultColor.value, n);
-    tft.startWrite();
-    tft.setAddrWindow(MARGIN_LEFT, YP * CH_H + MARGIN_TOP, SP_W, ((YP + 1) * CH_H) - (YP * CH_H));
+    lcd.setAddrWindow(MARGIN_LEFT, YP * CH_H + MARGIN_TOP, SP_W, ((YP + 1) * CH_H) - (YP * CH_H));
     sc_updateLine(YP);
-    tft.endWrite();  
   }
 }
 
@@ -1035,11 +1007,9 @@ void insertLine(uint8_t v) {
   memset(&screen[idx], 0x00, n);
   memset(&attrib[idx], defaultAttr.value, n);
   memset(&colors[idx], defaultColor.value, n);
-  tft.startWrite();
-  tft.setAddrWindow(MARGIN_LEFT, YP * CH_H + MARGIN_TOP, SP_W, ((M_BOTTOM + 1) * CH_H) - (YP * CH_H));
+  lcd.setAddrWindow(MARGIN_LEFT, YP * CH_H + MARGIN_TOP, SP_W, ((M_BOTTOM + 1) * CH_H) - (YP * CH_H));
   for (uint8_t y = YP; y <= M_BOTTOM; y++)
     sc_updateLine(y);
-  tft.endWrite();  
 }
 
 // DL (Delete Line): カーソルのある行から Ps 行を削除
@@ -1063,11 +1033,9 @@ void deleteLine(uint8_t v) {
   memset(&screen[idx3], 0x00, n);
   memset(&attrib[idx3], defaultAttr.value, n);
   memset(&colors[idx3], defaultColor.value, n);
-  tft.startWrite();
-  tft.setAddrWindow(MARGIN_LEFT, YP * CH_H + MARGIN_TOP, SP_W, ((M_BOTTOM + 1) * CH_H) - (YP * CH_H));
+  lcd.setAddrWindow(MARGIN_LEFT, YP * CH_H + MARGIN_TOP, SP_W, ((M_BOTTOM + 1) * CH_H) - (YP * CH_H));
   for (uint8_t y = YP; y <= M_BOTTOM; y++)
     sc_updateLine(y);
-  tft.endWrite();  
 }
 
 // CPR (Cursor Position Report): カーソル位置のレポート
@@ -1432,11 +1400,9 @@ void screenAlignmentDisplay() {
   memset(screen, 0x45, SCSIZE);
   memset(attrib, defaultAttr.value, SCSIZE);
   memset(colors, defaultColor.value, SCSIZE);
-  tft.startWrite();
-  tft.setAddrWindow(MARGIN_LEFT, MARGIN_TOP, SP_W, SP_H);
+  lcd.setAddrWindow(MARGIN_LEFT, MARGIN_TOP, SP_W, SP_H);
   for (uint8_t y = 0; y < SC_H; y++)
     sc_updateLine(y);
-  tft.endWrite();  
 }
 
 // "(" G0 Sets Sequence
@@ -1532,14 +1498,14 @@ void setup() {
   digitalWrite(LED_04, LOW);
 */
   
-  // TFT の初期化
-  tft.init();
-  tft.begin();
-  tft.setRotation(3);
+  // LCD の初期化
+  lcd.init();
+  lcd.setRotation(1);
+  lcd.setColorDepth(16);
   
   fontTop = (uint8_t*)font6x8tt + 3;
   resetToInitialState();
-  printString("\e[0;44m *** Terminal Init *** \e[0m\n");
+//printString("\e[0;44m *** Terminal Init *** \e[0m\n");
   setCursorToHome();
 
   // カーソル用タイマーの設定
