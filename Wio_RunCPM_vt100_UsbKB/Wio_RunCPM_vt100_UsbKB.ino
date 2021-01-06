@@ -231,6 +231,22 @@ bool isDECPrivateMode = false; // DEC Private Mode (<ESC> [ ?)
 union MODE mode = {defaultMode};
 union MODE_EX mode_ex = {defaultModeEx};
 
+/********************************************
+キーボードと Wio Terminal のボタンとスイッチの対応
++------------+--------------+-----------+
+| キーボード | Wio Terminal | ESC SEQ   |
++------------+--------------+-----------+
+| [F3]       | WIO_KEY_C    | [ESC] [ P |
+| [F4]       | WIO_KEY_B    | [ESC] [ Q |
+| [F5]       | WIO_KEY_A    | [ESC] [ R |
+| [UP]       | WIO_5S_UP    | [ESC] [ A |
+| [DOWN]     | WIO_5S_DOWN  | [ESC] [ B |
+| [RIGHT]    | WIO_5S_RIGHT | [ESC] [ C |
+| [LEFT]     | WIO_5S_LEFT  | [ESC] [ D |
+| [ENTER]    | WIO_5S_PRESS | [CR]      |
++------------+--------------+-----------+
+********************************************/
+
 // スイッチ情報
 enum WIO_SW {SW_UP, SW_DOWN, SW_RIGHT, SW_LEFT, SW_PRESS};
 PROGMEM const int SW_PORT[5] = {WIO_5S_UP, WIO_5S_DOWN, WIO_5S_RIGHT, WIO_5S_LEFT, WIO_5S_PRESS}; 
