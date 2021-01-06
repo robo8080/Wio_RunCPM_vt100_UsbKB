@@ -337,6 +337,8 @@ void printKey() {
 // 指定位置の文字の更新表示
 void sc_updateChar(uint16_t x, uint16_t y) {
   uint16_t idx = SC_W * y + x;
+  uint16_t buflen = CH_W * CH_H;
+  uint16_t buf[buflen];
   uint8_t c    = screen[idx];        // キャラクタの取得
   uint8_t* ptr = &fontTop[c * CH_H]; // フォントデータ先頭アドレス
   union ATTR a;
@@ -347,29 +349,30 @@ void sc_updateChar(uint16_t x, uint16_t y) {
   uint16_t back = aColors[l.Color.Background | (a.Bits.Blink << 3)];
   if (a.Bits.Reverse) swap(fore, back);
   if (mode_ex.Flgs.ScreenReverse) swap(fore, back);
-  uint16_t xx = x * CH_W;
-  uint16_t yy = y * CH_H;
-  lcd.startWrite(); 
+  lcd.setAddrWindow(MARGIN_LEFT + x * CH_W , MARGIN_TOP + y * CH_H, CH_W, CH_H);
+  uint16_t cnt = 0;
   for (uint8_t i = 0; i < CH_H; i++) {
     bool prev = (a.Bits.Underline && (i == MAX_CH_Y));
     for (uint8_t j = 0; j < CH_W; j++) {
       bool pset = ((*ptr) & (0x80 >> j));
-      uint16_t d = (pset || prev) ? fore : back;
-      lcd.drawPixel(MARGIN_LEFT + xx + j, MARGIN_TOP + yy + i, d);
+      buf[cnt] = (pset || prev) ? fore : back;
       if (a.Bits.Bold)
         prev = pset;
+      cnt++;  
     }
     ptr++;
   }
-  lcd.endWrite(); 
+  lcd.pushPixels(buf, buflen, true);
 }
 
 // カーソルの描画
 void drawCursor(uint16_t x, uint16_t y) {
-  uint16_t xx = x * CH_W;
-  uint16_t yy = y * CH_H;
-  
-  lcd.fillRect(MARGIN_LEFT + xx, MARGIN_TOP + yy, CH_W, CH_H, (uint16_t)ILI9341_WHITE);
+  uint16_t buflen = CH_W * CH_H;
+  uint16_t buf[buflen];
+  lcd.setAddrWindow(MARGIN_LEFT + x * CH_W, MARGIN_TOP + y * CH_H, CH_W, CH_H);
+  for (uint16_t i = 0; i < buflen; i++)
+    buf[i] = ILI9341_WHITE; 
+  lcd.pushPixels(buf, buflen, true);
 }
 
 // カーソルの表示
@@ -1635,17 +1638,4 @@ void loop() {
     dispCursor(needCursorUpdate);
     needCursorUpdate = false;
   }  
-  
-  // シリアル入力処理 (通信相手からの入力)
-//  while (TermSerial.available()) {
-//    char c = TermSerial.read();
-//    switch (c) {
-//      case 0x07:
-//        playTone(SPK_PIN, 4000, 583);
-//        break;
-//      default:
-//        printChar(c);
-//        break;
-//    }
-//  }
 }
