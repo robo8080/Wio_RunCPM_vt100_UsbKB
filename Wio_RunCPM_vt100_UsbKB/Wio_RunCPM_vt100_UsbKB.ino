@@ -98,8 +98,8 @@ uint8_t* fontTop;
 // スクリーン管理用
 #define RSP_W   320   // 実ピクセルスクリーン横サイズ
 #define RSP_H   240   // 実ピクセルスクリーン縦サイズ
-#define SC_W    53    // キャラクタスクリーン横サイズ (< 53)
-#define SC_H    30    // キャラクタスクリーン縦サイズ (< 30)
+#define SC_W    52    // キャラクタスクリーン横サイズ (< 53)
+#define SC_H    29    // キャラクタスクリーン縦サイズ (< 30)
 
 // 座標やサイズのプレ計算
 PROGMEM const uint16_t SCSIZE   = SC_W * SC_H;  // キャラクタスクリーンサイズ
@@ -412,7 +412,7 @@ void dispCursor(bool forceupdate) {
 // 指定行をTFT画面に反映
 // 引数
 //  ln:行番号（0～29)
-void sc_updateLine(uint8_t ln) {
+void sc_updateLine(uint16_t ln) {
   uint8_t c;
   uint8_t dt;
 //uint16_t buf[2][SP_W];
@@ -435,14 +435,14 @@ void sc_updateLine(uint8_t ln) {
       bool prev = (a.Bits.Underline && (i == MAX_CH_Y));
       for (uint16_t j = 0; j < CH_W; j++) {
         bool pset = dt & (0x80 >> j);
-//      buf[i & 1][cnt] = (pset || prev) ? fore : back; // Need Debug
-        tft.pushColor((pset || prev) ? fore : back);
+//      buf[i & 1][cnt] = (pset || prev) ? fore : back;
+        tft.pushColor((pset || prev) ? fore : back);// pushColors() の挙動がおかしいので pushColor()で代替
         if (a.Bits.Bold)
           prev = pset;
         cnt++;
       }
     }
-//  tft.pushColors((uint16_t*)buf[i & 1], SP_W, true); // Need Debug
+//  tft.pushColors(buf[i & 1], SP_W, true);
   }
 }
 
