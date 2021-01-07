@@ -15,13 +15,7 @@
 //------RunCPM-----------------------------------------------------------
 #include "globals.h"
 #include <SdFat.h>
-
 #include "hardware/wioterm.h"
-
-// Delays for LED blinking
-#define sDELAY 50
-#define DELAY 100
-
 #include "abstraction_arduino.h"
 
 // Serial port speed
