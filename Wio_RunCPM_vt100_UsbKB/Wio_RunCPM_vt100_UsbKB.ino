@@ -51,11 +51,7 @@ int lst_open = FALSE;
 //-----------------------------------------------------------------
 
 // シリアル
-//#define TermSerial Serial1
 #define DebugSerial Serial1
-
-// デフォルト通信速度
-#define DEFAULT_BAUDRATE 9600
 
 // スピーカー制御用ピン
 #define SPK_PIN  WIO_BUZZER
@@ -371,7 +367,7 @@ void drawCursor(uint16_t x, uint16_t y) {
   uint16_t buf[buflen];
   lcd.setAddrWindow(MARGIN_LEFT + x * CH_W, MARGIN_TOP + y * CH_H, CH_W, CH_H);
   for (uint16_t i = 0; i < buflen; i++)
-    buf[i] = ILI9341_WHITE; 
+    buf[i] = 0xFFFF; // ILI9341_WHITE
   lcd.pushPixels(buf, buflen, true);
 }
 
@@ -869,7 +865,6 @@ void identify() {
 // RIS (Reset To Initial State) リセット
 void resetToInitialState() {
   lcd.fillScreen((uint16_t)aColors[defaultColor.Color.Background]);
-//lcd.fillRect(0, 0, RSP_W, RSP_H, (uint16_t)aColors[defaultColor.Color.Background]);
   initCursorAndAttribute();
   eraseInDisplay(2);
 }
@@ -1043,23 +1038,17 @@ void deleteLine(uint8_t v) {
 
 // CPR (Cursor Position Report): カーソル位置のレポート
 void cursorPositionReport(uint16_t y, uint16_t x) {
-//  TermSerial.print(F("\e["));
-//  TermSerial.print(String(y, DEC));
-//  TermSerial.print(F(";"));
-//  TermSerial.print(String(x, DEC));
-//  TermSerial.print(F("R")); // CPR (Cursor Position Report)
-  printString("\e[");
-  printString(String(y, DEC).c_str());
-  printString(";");
-  printString(String(x, DEC).c_str());
-  printString("R"); // CPR (Cursor Position Report)
+  String s = "\e[" + String(y, DEC) + ";" + String(x, DEC) + "R";
+  for (int8_t i = 0; i < s.length(); i++)
+    xQueueSend(xQueue, (char *)s.charAt(i), 0);
 }
 
 // DA (Device Attributes): 装置オプションのレポート
 // オプションのレポート
 void deviceAttributes(uint8_t m) {
-//  TermSerial.print(F("\e[?1;0c")); // 0 No options
-  printString("\e[?1;0c");
+  String s = "\e[?1;0c";
+  for (int8_t i = 0; i < s.length(); i++)
+    xQueueSend(xQueue, (char *)s.charAt(i), 0);
 }
 
 // TBC (Tabulation Clear): タブストップをクリア
@@ -1315,8 +1304,11 @@ void selectGraphicRendition(int16_t *vals, int16_t nVals) {
 void deviceStatusReport(uint8_t m) {
   switch (m) {
     case 5:
-//      TermSerial.print(F("\e[0n"));   // 0 Ready, No malfunctions detected (default) (DSR)
-      printString("\e[0n");
+      {
+        String s = "\e[0n";
+        for (int8_t i = 0; i < s.length(); i++)
+          xQueueSend(xQueue, (char *)s.charAt(i), 0);
+      }
       break;
     case 6:
       cursorPositionReport(XP, YP); // CPR (Cursor Position Report)
@@ -1480,13 +1472,6 @@ void playTone(int pin, int tone, int duration) {
 void setup() {
   DebugSerial.begin(115200);
   delay(500);
-//  while (!DebugSerial) {  // Wait until serial is connected
-//    digitalWrite(LED, HIGH^LEDinv);
-//    delay(sDELAY);
-//    digitalWrite(LED, LOW^LEDinv);
-//    delay(sDELAY);
-//  }
-//  TermSerial.begin(DEFAULT_BAUDRATE);
   xQueue = xQueueCreate( QUEUE_LENGTH, sizeof( uint8_t ) );
 
   // LED の初期化
@@ -1509,7 +1494,6 @@ void setup() {
   
   fontTop = (uint8_t*)font6x8tt + 3;
   resetToInitialState();
-//printString("\e[0;44m *** Terminal Init *** \e[0m\n");
   setCursorToHome();
 
   // カーソル用タイマーの設定
@@ -1550,21 +1534,7 @@ void setup() {
   _puts("\r\n");
 
   _puts("Initializing SD card.\r\n");
-#if defined(board_agcm4) || defined(board_wioterm)
-//if (SD.cardBegin(SDINIT, SD_SCK_MHZ(50))) {
-//    if (!SD.fsBegin()) {
-//      _puts("\nFile System initialization failed.\n");
-//      return;
-//    }
   if (SD.begin(SDINIT, SD_SCK_MHZ(50))) {
-#elif defined board_teensy40 
-  if (SD.begin(SDINIT, SD_SCK_MHZ(25))) {
-#elif defined board_esp32
-  SPI.begin(SDINIT);
-  if (SD.begin(SS, SD_SCK_MHZ(SDMHZ))) {
-#else
-  if (SD.begin(SDINIT)) {
-#endif
     if (VersionCCP >= 0x10 || SD.exists(CCPname)) {
       while (true) {
         _puts(CCPHEAD);
