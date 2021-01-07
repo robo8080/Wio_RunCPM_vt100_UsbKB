@@ -1,11 +1,8 @@
-/*
-  vt100_wt.ino - VT100 Terminal Emulator for Wio Terminal
-  Copyright (c) 2020 Hideaki Tominaga. All rights reserved.
-*/
+//------VT100_WT---------------------------------------------------------
 #include <Arduino.h>
 #include <Seeed_Arduino_FreeRTOS.h>
-#include <TFT_eSPI.h>               // Hardware-specific library
 #include <SPI.h>
+#include <LovyanGFX.hpp>
 #include <SAMD51_InterruptTimer.h>
 #include <Reset.h>
 #include <KeyboardController.h>
@@ -17,18 +14,8 @@
 
 //------RunCPM-----------------------------------------------------------
 #include "globals.h"
+#include <SdFat.h>
 
-//#include <SPI.h>
-
-#ifdef ARDUINO_TEENSY41
-  #include <SdFat-beta.h>
-#else
-  #include <SdFat.h>  // One SD library to rule them all - Greinman SdFat from Library Manager
-#endif
-
-// Board definitions go into the "hardware" folder
-// Choose/change a file from there
-//#include "hardware/esp32.h"
 #include "hardware/wioterm.h"
 
 // Delays for LED blinking
@@ -81,8 +68,8 @@ int lst_open = FALSE;
 #define LED_04  D5
 */
 
-// TFT 制御用
-TFT_eSPI tft;
+// LCD 制御用
+static LGFX lcd;
 
 // USB 制御用
 USBHost usb;
@@ -95,14 +82,14 @@ void printKey();
 
 // フォント管理用
 uint8_t* fontTop;
-#define CH_W    6                       // フォント横サイズ
-#define CH_H    8                       // フォント縦サイズ
+#define CH_W    6     // フォント横サイズ
+#define CH_H    8     // フォント縦サイズ
 
 // スクリーン管理用
-#define SC_W    53                      // キャラクタスクリーン横サイズ
-#define SC_H    30                      // キャラクタスクリーン縦サイズ
-uint16_t M_TOP = 0;                     // 上マージン行
-uint16_t M_BOTTOM = SC_H - 1;           // 下マージン行
+#define RSP_W   320   // 実ピクセルスクリーン横サイズ
+#define RSP_H   240   // 実ピクセルスクリーン縦サイズ
+#define SC_W    53    // キャラクタスクリーン横サイズ (< 53)
+#define SC_H    30    // キャラクタスクリーン縦サイズ (< 30)
 
 // 座標やサイズのプレ計算
 PROGMEM const uint16_t SCSIZE   = SC_W * SC_H;  // キャラクタスクリーンサイズ
@@ -114,6 +101,12 @@ PROGMEM const uint16_t MAX_SC_X = SC_W - 1;     // キャラクタスクリー�
 PROGMEM const uint16_t MAX_SC_Y = SC_H - 1;     // キャラクタスクリーン最大縦位置
 PROGMEM const uint16_t MAX_SP_X = SP_W - 1;     // ピクセルスクリーン最大横位置
 PROGMEM const uint16_t MAX_SP_Y = SP_H - 1;     // ピクセルスクリーン最大縦位置
+PROGMEM const uint16_t MARGIN_LEFT = (RSP_W - SP_W) / 2; // 左マージン
+PROGMEM const uint16_t MARGIN_TOP  = (RSP_H - SP_H) / 2; // 上マージン
+
+// スクロール有効行
+uint16_t M_TOP    = 0;                  // スクロール行上限
+uint16_t M_BOTTOM = MAX_SC_Y;           // スクロール行下限
 
 // 文字アトリビュート用
 struct TATTR {
@@ -243,16 +236,17 @@ union MODE_EX mode_ex = {defaultModeEx};
 | [ENTER]    | WIO_5S_PRESS | [CR]      |
 +------------+--------------+-----------+
 ********************************************/
+
 // スイッチ情報
 enum WIO_SW {SW_UP, SW_DOWN, SW_RIGHT, SW_LEFT, SW_PRESS};
 PROGMEM const int SW_PORT[5] = {WIO_5S_UP, WIO_5S_DOWN, WIO_5S_RIGHT, WIO_5S_LEFT, WIO_5S_PRESS}; 
-PROGMEM const char SW_CMD[5][5] = {"\e[A", "\e[B", "\e[C", "\e[D", "\r"}; 
+PROGMEM const char SW_CMD[5][4] = {"\e[A", "\e[B", "\e[C", "\e[D", "\r"}; 
 bool prev_sw[5] = {false, false, false, false, false};
 
 // ボタン情報
 enum WIO_BTN {BT_A, BT_B, BT_C};
 PROGMEM const int BTN_PORT[3] = {WIO_KEY_A, WIO_KEY_B, WIO_KEY_C}; 
-PROGMEM const char BTN_CMD[3][5] = {"\e[R", "\e[Q", "\e[P"}; 
+PROGMEM const char BTN_CMD[3][4] = {"\e[R", "\e[Q", "\e[P"}; 
 bool prev_btn[3] = {false, false, false};
 
 // 前回位置情報
@@ -343,6 +337,8 @@ void printKey() {
 // 指定位置の文字の更新表示
 void sc_updateChar(uint16_t x, uint16_t y) {
   uint16_t idx = SC_W * y + x;
+  uint16_t buflen = CH_W * CH_H;
+  uint16_t buf[buflen];
   uint8_t c    = screen[idx];        // キャラクタの取得
   uint8_t* ptr = &fontTop[c * CH_H]; // フォントデータ先頭アドレス
   union ATTR a;
@@ -353,37 +349,30 @@ void sc_updateChar(uint16_t x, uint16_t y) {
   uint16_t back = aColors[l.Color.Background | (a.Bits.Blink << 3)];
   if (a.Bits.Reverse) swap(fore, back);
   if (mode_ex.Flgs.ScreenReverse) swap(fore, back);
-  uint16_t xx = x * CH_W;
-  uint16_t yy = y * CH_H;
-
-  tft.setAddrWindow(xx, yy, CH_W, CH_H);
-  tft.startWrite();
+  lcd.setAddrWindow(MARGIN_LEFT + x * CH_W , MARGIN_TOP + y * CH_H, CH_W, CH_H);
+  uint16_t cnt = 0;
   for (uint8_t i = 0; i < CH_H; i++) {
     bool prev = (a.Bits.Underline && (i == MAX_CH_Y));
     for (uint8_t j = 0; j < CH_W; j++) {
       bool pset = ((*ptr) & (0x80 >> j));
-      uint16_t d = (pset || prev) ? fore : back;
-      tft.pushColor(d);
+      buf[cnt] = (pset || prev) ? fore : back;
       if (a.Bits.Bold)
         prev = pset;
+      cnt++;  
     }
     ptr++;
   }
-  tft.endWrite();
+  lcd.pushPixels(buf, buflen, true);
 }
 
 // カーソルの描画
 void drawCursor(uint16_t x, uint16_t y) {
-  uint16_t xx = x * CH_W;
-  uint16_t yy = y * CH_H;
-  
-  tft.setAddrWindow(xx, yy, CH_W, CH_H);
-  tft.startWrite();
-  for (uint8_t i = 0; i < CH_H; i++) {
-    for (uint8_t j = 0; j < CH_W; j++)
-      tft.pushColor(ILI9341_WHITE);
-  }
-  tft.endWrite();
+  uint16_t buflen = CH_W * CH_H;
+  uint16_t buf[buflen];
+  lcd.setAddrWindow(MARGIN_LEFT + x * CH_W, MARGIN_TOP + y * CH_H, CH_W, CH_H);
+  for (uint16_t i = 0; i < buflen; i++)
+    buf[i] = ILI9341_WHITE; 
+  lcd.pushPixels(buf, buflen, true);
 }
 
 // カーソルの表示
@@ -405,19 +394,18 @@ void dispCursor(bool forceupdate) {
   needCursorUpdate = false;
 }
 
-// 指定行をTFT画面に反映
+// 指定行をLCD画面に反映
 // 引数
 //  ln:行番号（0～29)
 void sc_updateLine(uint16_t ln) {
   uint8_t c;
   uint8_t dt;
-//  uint16_t buf[2][SP_W];
+  uint16_t buf[2][SP_W];
   uint16_t cnt, idx;
   union ATTR a;
   union COLOR l;
-
   for (uint16_t i = 0; i < CH_H; i++) {            // 1文字高さ分ループ
-    cnt = 0;
+    cnt = 0; 
     for (uint16_t clm = 0; clm < SC_W; clm++) {    // 横文字数分ループ
       idx = ln * SC_W + clm;
       c  = screen[idx];                            // キャラクタの取得
@@ -431,14 +419,13 @@ void sc_updateLine(uint16_t ln) {
       bool prev = (a.Bits.Underline && (i == MAX_CH_Y));
       for (uint16_t j = 0; j < CH_W; j++) {
         bool pset = dt & (0x80 >> j);
-//      buf[i & 1][cnt] = (pset || prev) ? fore : back;
-        tft.pushColor((pset || prev) ? fore : back);    // pushColors() の挙動がおかしいので pushColor()で代替
+        buf[i & 1][cnt] = (pset || prev) ? fore : back;
         if (a.Bits.Bold)
           prev = pset;
-        cnt++;
+        cnt++;  
       }
     }
-//    tft.pushColors(buf[i & 1], SP_W, true);
+    lcd.pushPixels(buf[i & 1], SP_W, true);
   }
 }
 
@@ -479,11 +466,9 @@ void scroll() {
       attrib[idx2] = defaultAttr.value;
       colors[idx2] = defaultColor.value;
     }
-    tft.setAddrWindow(0, M_TOP * CH_H, SP_W, ((M_BOTTOM + 1) * CH_H) - (M_TOP * CH_H));
-    tft.startWrite();
+    lcd.setAddrWindow(MARGIN_LEFT, M_TOP * CH_H + MARGIN_TOP, SP_W, ((M_BOTTOM + 1) * CH_H) - (M_TOP * CH_H));
     for (uint8_t y = M_TOP; y <= M_BOTTOM; y++)
       sc_updateLine(y);
-    tft.endWrite();  
     YP = M_BOTTOM;
   }
 }
@@ -677,8 +662,10 @@ void printChar(char c) {
           break;
         case 'm':
           // SGR (Select Graphic Rendition): 文字修飾の設定
-          if (nVals == 0)
-            nVals = 1; // vals[0] = 0
+          if (nVals == 0) {
+            nVals = 1; 
+            vals[0] = 0;
+          }  
           selectGraphicRendition(vals, nVals);
           break;
         case 'n':
@@ -881,7 +868,8 @@ void identify() {
 
 // RIS (Reset To Initial State) リセット
 void resetToInitialState() {
-  tft.fillScreen(aColors[defaultColor.Color.Background]);
+  lcd.fillScreen((uint16_t)aColors[defaultColor.Color.Background]);
+//lcd.fillRect(0, 0, RSP_W, RSP_H, (uint16_t)aColors[defaultColor.Color.Background]);
   initCursorAndAttribute();
   eraseInDisplay(2);
 }
@@ -926,12 +914,9 @@ void cursorPosition(uint8_t y, uint8_t x) {
 
 // 画面を再描画
 void refreshScreen() {
-
-  tft.setAddrWindow(0, 0, SP_W, SP_H);
-  tft.startWrite();
+  lcd.setAddrWindow(MARGIN_LEFT, MARGIN_TOP, SP_W, SP_H);
   for (uint8_t i = 0; i < SC_H; i++)
     sc_updateLine(i);
-  tft.endWrite();  
 }
 
 // ED (Erase In Display): 画面を消去
@@ -967,11 +952,9 @@ void eraseInDisplay(uint8_t m) {
     memset(&screen[idx], 0x00, n);
     memset(&attrib[idx], defaultAttr.value, n);
     memset(&colors[idx], defaultColor.value, n);
-    tft.setAddrWindow(0, sl * CH_H, SP_W, ((el + 1) * CH_H) - (sl * CH_H));
-    tft.startWrite();
+    lcd.setAddrWindow(MARGIN_LEFT, sl * CH_H + MARGIN_TOP, SP_W, ((el + 1) * CH_H) - (sl * CH_H));
     for (uint8_t i = sl; i <= el; i++)
       sc_updateLine(i);
-    tft.endWrite();  
   }
 }
 
@@ -1002,10 +985,8 @@ void eraseInLine(uint8_t m) {
     memset(&screen[slp], 0x00, n);
     memset(&attrib[slp], defaultAttr.value, n);
     memset(&colors[slp], defaultColor.value, n);
-    tft.setAddrWindow(0, YP * CH_H, SP_W, ((YP + 1) * CH_H) - (YP * CH_H));
-    tft.startWrite();
+    lcd.setAddrWindow(MARGIN_LEFT, YP * CH_H + MARGIN_TOP, SP_W, ((YP + 1) * CH_H) - (YP * CH_H));
     sc_updateLine(YP);
-    tft.endWrite();  
   }
 }
 
@@ -1029,11 +1010,9 @@ void insertLine(uint8_t v) {
   memset(&screen[idx], 0x00, n);
   memset(&attrib[idx], defaultAttr.value, n);
   memset(&colors[idx], defaultColor.value, n);
-  tft.setAddrWindow(0, YP * CH_H, SP_W, ((M_BOTTOM + 1) * CH_H) - (YP * CH_H));
-  tft.startWrite();
+  lcd.setAddrWindow(MARGIN_LEFT, YP * CH_H + MARGIN_TOP, SP_W, ((M_BOTTOM + 1) * CH_H) - (YP * CH_H));
   for (uint8_t y = YP; y <= M_BOTTOM; y++)
     sc_updateLine(y);
-  tft.endWrite();  
 }
 
 // DL (Delete Line): カーソルのある行から Ps 行を削除
@@ -1057,11 +1036,9 @@ void deleteLine(uint8_t v) {
   memset(&screen[idx3], 0x00, n);
   memset(&attrib[idx3], defaultAttr.value, n);
   memset(&colors[idx3], defaultColor.value, n);
-  tft.setAddrWindow(0, YP * CH_H, SP_W, ((M_BOTTOM + 1) * CH_H) - (YP * CH_H));
-  tft.startWrite();
+  lcd.setAddrWindow(MARGIN_LEFT, YP * CH_H + MARGIN_TOP, SP_W, ((M_BOTTOM + 1) * CH_H) - (YP * CH_H));
   for (uint8_t y = YP; y <= M_BOTTOM; y++)
     sc_updateLine(y);
-  tft.endWrite();  
 }
 
 // CPR (Cursor Position Report): カーソル位置のレポート
@@ -1382,8 +1359,10 @@ void loadLEDs(uint8_t m) {
 void setTopAndBottomMargins(int16_t s, int16_t e) {
   if (e <= s) return;
   M_TOP    = s - 1;
+  if (M_TOP < 0) M_TOP = 0;
   if (M_TOP > MAX_SC_Y) M_TOP = MAX_SC_Y;
   M_BOTTOM = e - 1;
+  if (M_BOTTOM < 0) M_BOTTOM = 0;
   if (M_BOTTOM > MAX_SC_Y) M_BOTTOM = MAX_SC_Y;
   setCursorToHome();
 }
@@ -1421,14 +1400,12 @@ void doubleWidthLine() {
 
 // DECALN (Screen Alignment Display): 画面を文字‘E’で埋める
 void screenAlignmentDisplay() {
-  tft.setAddrWindow(0, 0, SP_W, SP_H);
   memset(screen, 0x45, SCSIZE);
   memset(attrib, defaultAttr.value, SCSIZE);
   memset(colors, defaultColor.value, SCSIZE);
-  tft.startWrite();
+  lcd.setAddrWindow(MARGIN_LEFT, MARGIN_TOP, SP_W, SP_H);
   for (uint8_t y = 0; y < SC_H; y++)
     sc_updateLine(y);
-  tft.endWrite();  
 }
 
 // "(" G0 Sets Sequence
@@ -1524,14 +1501,14 @@ void setup() {
   digitalWrite(LED_04, LOW);
 */
   
-  // TFT の初期化
-  tft.init();
-  tft.begin();
-  tft.setRotation(3);
+  // LCD の初期化
+  lcd.init();
+  lcd.setRotation(1);
+  lcd.setColorDepth(16);
   
   fontTop = (uint8_t*)font6x8tt + 3;
   resetToInitialState();
-  printString("\e[0;44m *** Terminal Init *** \e[0m\n");
+//printString("\e[0;44m *** Terminal Init *** \e[0m\n");
   setCursorToHome();
 
   // カーソル用タイマーの設定
@@ -1573,11 +1550,12 @@ void setup() {
 
   _puts("Initializing SD card.\r\n");
 #if defined(board_agcm4) || defined(board_wioterm)
-  if (SD.cardBegin(SDINIT, SD_SCK_MHZ(50))) {
-    if (!SD.fsBegin()) {
-      _puts("\nFile System initialization failed.\n");
-      return;
-    }
+//if (SD.cardBegin(SDINIT, SD_SCK_MHZ(50))) {
+//    if (!SD.fsBegin()) {
+//      _puts("\nFile System initialization failed.\n");
+//      return;
+//    }
+  if (SD.begin(SDINIT, SD_SCK_MHZ(50))) {
 #elif defined board_teensy40 
   if (SD.begin(SDINIT, SD_SCK_MHZ(25))) {
 #elif defined board_esp32
@@ -1660,17 +1638,4 @@ void loop() {
     dispCursor(needCursorUpdate);
     needCursorUpdate = false;
   }  
-  
-  // シリアル入力処理 (通信相手からの入力)
-//  while (TermSerial.available()) {
-//    char c = TermSerial.read();
-//    switch (c) {
-//      case 0x07:
-//        playTone(SPK_PIN, 4000, 583);
-//        break;
-//      default:
-//        printChar(c);
-//        break;
-//    }
-//  }
 }
