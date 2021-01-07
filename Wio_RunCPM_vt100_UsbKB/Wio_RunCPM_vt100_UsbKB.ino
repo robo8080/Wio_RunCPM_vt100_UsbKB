@@ -1503,6 +1503,7 @@ void setup() {
   
   // LCD の初期化
   lcd.init();
+  lcd.startWrite();
   lcd.setRotation(1);
   lcd.setColorDepth(16);
   
