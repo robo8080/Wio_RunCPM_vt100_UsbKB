@@ -75,8 +75,8 @@ uint8_t* fontTop;
 // スクリーン管理用
 #define RSP_W   320   // 実ピクセルスクリーン横サイズ
 #define RSP_H   240   // 実ピクセルスクリーン縦サイズ
-#define SC_W    53    // キャラクタスクリーン横サイズ (< 53)
-#define SC_H    30    // キャラクタスクリーン縦サイズ (< 30)
+#define SC_W    53    // キャラクタスクリーン横サイズ (<= 53)
+#define SC_H    30    // キャラクタスクリーン縦サイズ (<= 30)
 
 // 座標やサイズのプレ計算
 PROGMEM const uint16_t SCSIZE   = SC_W * SC_H;  // キャラクタスクリーンサイズ
