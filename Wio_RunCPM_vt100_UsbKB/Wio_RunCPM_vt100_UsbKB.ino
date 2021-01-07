@@ -53,9 +53,6 @@ int lst_open = FALSE;
 // シリアル
 #define DebugSerial Serial1
 
-// スピーカー制御用ピン
-#define SPK_PIN  WIO_BUZZER
-
 // LED 制御用ピン
 /*
 #define LED_01  D2
@@ -1039,7 +1036,7 @@ void deleteLine(uint8_t v) {
 // CPR (Cursor Position Report): カーソル位置のレポート
 void cursorPositionReport(uint16_t y, uint16_t x) {
   String s = "\e[" + String(y, DEC) + ";" + String(x, DEC) + "R";
-  for (int8_t i = 0; i < s.length(); i++)
+  for (int i=0; i<s.length(); i++)
     xQueueSend(xQueue, (char *)s.charAt(i), 0);
 }
 
@@ -1047,7 +1044,7 @@ void cursorPositionReport(uint16_t y, uint16_t x) {
 // オプションのレポート
 void deviceAttributes(uint8_t m) {
   String s = "\e[?1;0c";
-  for (int8_t i = 0; i < s.length(); i++)
+  for (int i=0; i<s.length(); i++)
     xQueueSend(xQueue, (char *)s.charAt(i), 0);
 }
 
@@ -1306,7 +1303,7 @@ void deviceStatusReport(uint8_t m) {
     case 5:
       {
         String s = "\e[0n";
-        for (int8_t i = 0; i < s.length(); i++)
+        for (int i=0; i<s.length(); i++)
           xQueueSend(xQueue, (char *)s.charAt(i), 0);
       }
       break;
