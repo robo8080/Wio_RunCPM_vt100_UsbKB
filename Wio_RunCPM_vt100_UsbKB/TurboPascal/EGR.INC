@@ -109,7 +109,14 @@ const
   end;
 
   procedure SetColor(r, g, b: Integer);
-
   begin
     Write(_EGR, r, ';', g, ';', b, 'F');
+  end;
+
+  procedure InitGraph;
+  begin
+    Write(#$1B'[H'#$1B'[2J');
+    SetColor(255, 255, 255);
+    SetBaseColor(0, 0, 0);
+    Clear;
   end;
