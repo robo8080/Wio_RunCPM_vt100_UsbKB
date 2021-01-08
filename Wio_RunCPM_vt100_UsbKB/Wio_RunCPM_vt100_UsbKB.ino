@@ -75,11 +75,11 @@ uint8_t* fontTop;
 // スクリーン管理用
 #define RSP_W   320   // 実ピクセルスクリーン横サイズ
 #define RSP_H   240   // 実ピクセルスクリーン縦サイズ
-#define SC_W    53    // キャラクタスクリーン横サイズ (<= 53)
-#define SC_H    30    // キャラクタスクリーン縦サイズ (<= 30)
+#define SC_W    52    // キャラクタスクリーン横サイズ (<= 53)
+#define SC_H    29    // キャラクタスクリーン縦サイズ (<= 30)
 
 // EGR 拡張を行うか？
-// #define USE_EGR
+#define USE_EGR
 
 // 座標やサイズのプレ計算
 PROGMEM const uint16_t SCSIZE      = SC_W * SC_H;        // キャラクタスクリーンサイズ
@@ -199,7 +199,7 @@ PROGMEM enum class em {NONE,  ES, CSI, CSI2, LSC, G0S, G1S, EGR};
 PROGMEM uint8_t defaultMode = 0b00001000;
 PROGMEM uint16_t defaultModeEx = 0b0000000001000000;
 PROGMEM const union ATTR defaultAttr = {0b00000000};
-PROGMEM const union COLOR defaultColor = {(clBlack << 4) | clWhite}; // back, fore
+PROGMEM const union COLOR defaultColor = {(clBlue << 4) | clWhite}; // back, fore
 
 // 状態
 em escMode = em::NONE;         // エスケープシーケンスモード
@@ -1062,9 +1062,13 @@ void eraseInDisplay(uint8_t m) {
     memset(&screen[idx], 0x00, n);
     memset(&attrib[idx], defaultAttr.value, n);
     memset(&colors[idx], defaultColor.value, n);
-    lcd.setAddrWindow(MARGIN_LEFT, sl * CH_H + MARGIN_TOP, SP_W, ((el + 1) * CH_H) - (sl * CH_H));
-    for (int i = sl; i <= el; i++)
-      sc_updateLine(i);
+    if (m == 2) 
+      lcd.clear(aColors[defaultColor.Color.Background]);
+    else {
+      lcd.setAddrWindow(MARGIN_LEFT, sl * CH_H + MARGIN_TOP, SP_W, ((el + 1) * CH_H) - (sl * CH_H));
+      for (int i = sl; i <= el; i++)
+        sc_updateLine(i);
+    }
   }
 }
 
