@@ -49,10 +49,10 @@ int lst_open = FALSE;
 
 // LED 制御用ピン
 /*
-#define LED_01  D2
-#define LED_02  D3
-#define LED_03  D4
-#define LED_04  D5
+  #define LED_01  D2
+  #define LED_02  D3
+  #define LED_03  D4
+  #define LED_04  D5
 */
 
 // LCD 制御用
@@ -78,16 +78,19 @@ uint8_t* fontTop;
 #define SC_W    53    // キャラクタスクリーン横サイズ (<= 53)
 #define SC_H    30    // キャラクタスクリーン縦サイズ (<= 30)
 
+// EGR 拡張を行うか？
+// #define USE_EGR
+
 // 座標やサイズのプレ計算
-PROGMEM const uint16_t SCSIZE   = SC_W * SC_H;  // キャラクタスクリーンサイズ
-PROGMEM const uint16_t SP_W     = SC_W * CH_W;  // ピクセルスクリーン横サイズ
-PROGMEM const uint16_t SP_H     = SC_H * CH_H;  // ピクセルスクリーン縦サイズ
-PROGMEM const uint16_t MAX_CH_X = CH_W - 1;     // フォント最大横位置
-PROGMEM const uint16_t MAX_CH_Y = CH_H - 1;     // フォント最大縦位置
-PROGMEM const uint16_t MAX_SC_X = SC_W - 1;     // キャラクタスクリーン最大横位置
-PROGMEM const uint16_t MAX_SC_Y = SC_H - 1;     // キャラクタスクリーン最大縦位置
-PROGMEM const uint16_t MAX_SP_X = SP_W - 1;     // ピクセルスクリーン最大横位置
-PROGMEM const uint16_t MAX_SP_Y = SP_H - 1;     // ピクセルスクリーン最大縦位置
+PROGMEM const uint16_t SCSIZE      = SC_W * SC_H;        // キャラクタスクリーンサイズ
+PROGMEM const uint16_t SP_W        = SC_W * CH_W;        // ピクセルスクリーン横サイズ
+PROGMEM const uint16_t SP_H        = SC_H * CH_H;        // ピクセルスクリーン縦サイズ
+PROGMEM const uint16_t MAX_CH_X    = CH_W - 1;           // フォント最大横位置
+PROGMEM const uint16_t MAX_CH_Y    = CH_H - 1;           // フォント最大縦位置
+PROGMEM const uint16_t MAX_SC_X    = SC_W - 1;           // キャラクタスクリーン最大横位置
+PROGMEM const uint16_t MAX_SC_Y    = SC_H - 1;           // キャラクタスクリーン最大縦位置
+PROGMEM const uint16_t MAX_SP_X    = SP_W - 1;           // ピクセルスクリーン最大横位置
+PROGMEM const uint16_t MAX_SP_Y    = SP_H - 1;           // ピクセルスクリーン最大縦位置
 PROGMEM const uint16_t MARGIN_LEFT = (RSP_W - SP_W) / 2; // 左マージン
 PROGMEM const uint16_t MARGIN_TOP  = (RSP_H - SP_H) / 2; // 上マージン
 
@@ -134,14 +137,14 @@ PROGMEM const uint16_t aColors[] = {
   0xe73c  // white
 };
 
-PROGMEM const uint8_t clBlack = 0;
-PROGMEM const uint8_t clRed = 1;
-PROGMEM const uint8_t clGreen = 2;
-PROGMEM const uint8_t clYellow = 3;
-PROGMEM const uint8_t clBlue = 4;
+PROGMEM const uint8_t clBlack   = 0;
+PROGMEM const uint8_t clRed     = 1;
+PROGMEM const uint8_t clGreen   = 2;
+PROGMEM const uint8_t clYellow  = 3;
+PROGMEM const uint8_t clBlue    = 4;
 PROGMEM const uint8_t clMagenta = 5;
-PROGMEM const uint8_t clCyan = 6;
-PROGMEM const uint8_t clWhite = 7;
+PROGMEM const uint8_t clCyan    = 6;
+PROGMEM const uint8_t clWhite   = 7;
 
 struct TCOLOR {
   uint8_t Foreground : 4;
@@ -160,7 +163,7 @@ struct TMODE {
   bool CrLf : 1;       // 20: LNM (Line feed new line mode)
   bool Reserved33 : 1; // 33:
   bool Reserved34 : 1; // 34:
-  uint8_t Reverse : 2;    
+  uint8_t Reverse : 2;
 };
 
 union MODE {
@@ -178,7 +181,7 @@ struct TMODE_EX {
   bool WrapLine  : 1;     // 7 DECAWM (Autowrap Mode)
   bool Reserved8 : 1;     // 8 DECARM (Auto Repeat Mode)
   bool Reserved9 : 1;     // 9 DECINLM (Interlace Mode)
-  uint16_t Reverse : 7;    
+  uint16_t Reverse : 7;
 };
 
 union MODE_EX {
@@ -192,7 +195,7 @@ uint8_t attrib[SCSIZE];      // 文字アトリビュートバッファ
 uint8_t colors[SCSIZE];      // カラーアトリビュートバッファ
 uint8_t tabs[SC_W];          // タブ位置バッファ
 
-PROGMEM enum class em {NONE,  ES, CSI, CSI2, LSC, G0S, G1S};
+PROGMEM enum class em {NONE,  ES, CSI, CSI2, LSC, G0S, G1S, EGR};
 PROGMEM uint8_t defaultMode = 0b00001000;
 PROGMEM uint16_t defaultModeEx = 0b0000000001000000;
 PROGMEM const union ATTR defaultAttr = {0b00000000};
@@ -209,31 +212,31 @@ union MODE mode = {defaultMode};
 union MODE_EX mode_ex = {defaultModeEx};
 
 /********************************************
-キーボードと Wio Terminal のボタンとスイッチの対応
-+------------+--------------+-----------+
-| キーボード | Wio Terminal | ESC SEQ   |
-+------------+--------------+-----------+
-| [F3]       | WIO_KEY_C    | [ESC] [ P |
-| [F4]       | WIO_KEY_B    | [ESC] [ Q |
-| [F5]       | WIO_KEY_A    | [ESC] [ R |
-| [UP]       | WIO_5S_UP    | [ESC] [ A |
-| [DOWN]     | WIO_5S_DOWN  | [ESC] [ B |
-| [RIGHT]    | WIO_5S_RIGHT | [ESC] [ C |
-| [LEFT]     | WIO_5S_LEFT  | [ESC] [ D |
-| [ENTER]    | WIO_5S_PRESS | [CR]      |
-+------------+--------------+-----------+
+  キーボードと Wio Terminal のボタンとスイッチの対応
+  +------------+--------------+-----------+
+  | キーボード | Wio Terminal | ESC SEQ   |
+  +------------+--------------+-----------+
+  | [F3]       | WIO_KEY_C    | [ESC] [ P |
+  | [F4]       | WIO_KEY_B    | [ESC] [ Q |
+  | [F5]       | WIO_KEY_A    | [ESC] [ R |
+  | [UP]       | WIO_5S_UP    | [ESC] [ A |
+  | [DOWN]     | WIO_5S_DOWN  | [ESC] [ B |
+  | [RIGHT]    | WIO_5S_RIGHT | [ESC] [ C |
+  | [LEFT]     | WIO_5S_LEFT  | [ESC] [ D |
+  | [ENTER]    | WIO_5S_PRESS | [CR]      |
+  +------------+--------------+-----------+
 ********************************************/
 
 // スイッチ情報
 enum WIO_SW {SW_UP, SW_DOWN, SW_RIGHT, SW_LEFT, SW_PRESS};
-PROGMEM const int SW_PORT[5] = {WIO_5S_UP, WIO_5S_DOWN, WIO_5S_RIGHT, WIO_5S_LEFT, WIO_5S_PRESS}; 
-PROGMEM const char SW_CMD[5][4] = {"\e[A", "\e[B", "\e[C", "\e[D", "\r"}; 
+PROGMEM const int SW_PORT[5] = {WIO_5S_UP, WIO_5S_DOWN, WIO_5S_RIGHT, WIO_5S_LEFT, WIO_5S_PRESS};
+PROGMEM const char SW_CMD[5][4] = {"\e[A", "\e[B", "\e[C", "\e[D", "\r"};
 bool prev_sw[5] = {false, false, false, false, false};
 
 // ボタン情報
 enum WIO_BTN {BT_A, BT_B, BT_C};
-PROGMEM const int BTN_PORT[3] = {WIO_KEY_A, WIO_KEY_B, WIO_KEY_C}; 
-PROGMEM const char BTN_CMD[3][4] = {"\e[R", "\e[Q", "\e[P"}; 
+PROGMEM const int BTN_PORT[3] = {WIO_KEY_A, WIO_KEY_B, WIO_KEY_C};
+PROGMEM const char BTN_CMD[3][4] = {"\e[R", "\e[Q", "\e[P"};
 bool prev_btn[3] = {false, false, false};
 
 // 前回位置情報
@@ -263,7 +266,7 @@ bool needCursorUpdate = false;
 // -----------------------------------------------------------------------------
 
 void keyPressed() {
-//  printKey();
+  //printKey();
 }
 
 void keyReleased() {
@@ -281,41 +284,41 @@ void printKey() {
     int mod = keyboard.getModifiers();
     switch (key) {
       case 60: // F3 (Wio Button #3)
-        for (int l=0; l<3; l++)
+        for (int l = 0; l < 3; l++)
           xQueueSend(xQueue, &BTN_CMD[BT_C][l], 0);
         break;
       case 61: // F4 (Wio Button #2)
-        for (int l=0; l<3; l++)
+        for (int l = 0; l < 3; l++)
           xQueueSend(xQueue, &BTN_CMD[BT_B][l], 0);
         break;
       case 62: // F5 (Wio Button #1)
-        for (int l=0; l<3; l++)
+        for (int l = 0; l < 3; l++)
           xQueueSend(xQueue, &BTN_CMD[BT_A][l], 0);
         break;
       case 76: // DEL
         c = char(127);
-        xQueueSend(xQueue, &c, 0); 
+        xQueueSend(xQueue, &c, 0);
         break;
       case 79: // RIGHT (Wio Switch #3)
-        for (int l=0; l<3; l++)
+        for (int l = 0; l < 3; l++)
           xQueueSend(xQueue, &SW_CMD[SW_RIGHT][l], 0);
         break;
       case 80: // LEFT (Wio Switch #4)
-        for (int l=0; l<3; l++)
+        for (int l = 0; l < 3; l++)
           xQueueSend(xQueue, &SW_CMD[SW_LEFT ][l], 0);
         break;
       case 81: // DOWN (Wio Switch #2)
-        for (int l=0; l<3; l++)
+        for (int l = 0; l < 3; l++)
           xQueueSend(xQueue, &SW_CMD[SW_DOWN ][l], 0);
         break;
       case 82: // UP (Wio Switch #1)
-        for (int l=0; l<3; l++)
+        for (int l = 0; l < 3; l++)
           xQueueSend(xQueue, &SW_CMD[SW_UP   ][l], 0);
         break;
       default:
         needCursorUpdate = false;
     }
-  }        
+  }
 }
 
 // 交換
@@ -334,18 +337,19 @@ void sc_updateChar(uint16_t x, uint16_t y) {
   l.value = colors[idx];             // カラーアトリビュートの取得
   uint16_t fore = aColors[l.Color.Foreground | (a.Bits.Blink << 3)];
   uint16_t back = aColors[l.Color.Background | (a.Bits.Blink << 3)];
+
   if (a.Bits.Reverse) swap(fore, back);
   if (mode_ex.Flgs.ScreenReverse) swap(fore, back);
   lcd.setAddrWindow(MARGIN_LEFT + x * CH_W , MARGIN_TOP + y * CH_H, CH_W, CH_H);
   uint16_t cnt = 0;
-  for (uint8_t i = 0; i < CH_H; i++) {
+  for (int i = 0; i < CH_H; i++) {
     bool prev = (a.Bits.Underline && (i == MAX_CH_Y));
-    for (uint8_t j = 0; j < CH_W; j++) {
+    for (int j = 0; j < CH_W; j++) {
       bool pset = ((*ptr) & (0x80 >> j));
       buf[cnt] = (pset || prev) ? fore : back;
       if (a.Bits.Bold)
         prev = pset;
-      cnt++;  
+      cnt++;
     }
     ptr++;
   }
@@ -356,6 +360,7 @@ void sc_updateChar(uint16_t x, uint16_t y) {
 void drawCursor(uint16_t x, uint16_t y) {
   uint16_t buflen = CH_W * CH_H;
   uint16_t buf[buflen];
+
   lcd.setAddrWindow(MARGIN_LEFT + x * CH_W, MARGIN_TOP + y * CH_H, CH_W, CH_H);
   for (uint16_t i = 0; i < buflen; i++)
     buf[i] = 0xFFFF; // ILI9341_WHITE
@@ -391,9 +396,10 @@ void sc_updateLine(uint16_t ln) {
   uint16_t cnt, idx;
   union ATTR a;
   union COLOR l;
-  for (uint16_t i = 0; i < CH_H; i++) {            // 1文字高さ分ループ
-    cnt = 0; 
-    for (uint16_t clm = 0; clm < SC_W; clm++) {    // 横文字数分ループ
+
+  for (uint16_t i = 0; i < CH_H; i++) {        // 1文字高さ分ループ
+    cnt = 0;
+    for (uint16_t clm = 0; clm < SC_W; clm++) { // 横文字数分ループ
       idx = ln * SC_W + clm;
       c  = screen[idx];                            // キャラクタの取得
       a.value = attrib[idx];                       // 文字アトリビュートの取得
@@ -409,7 +415,7 @@ void sc_updateLine(uint16_t ln) {
         buf[i & 1][cnt] = (pset || prev) ? fore : back;
         if (a.Bits.Bold)
           prev = pset;
-        cnt++;  
+        cnt++;
       }
     }
     lcd.pushPixels(buf[i & 1], SP_W, true);
@@ -427,7 +433,7 @@ void initCursorAndAttribute() {
   cAttr.value = defaultAttr.value;
   cColor.value = defaultColor.value;
   memset(tabs, 0x00, SC_W);
-  for (uint8_t i = 0; i < SC_W; i += 8)
+  for (int i = 0; i < SC_W; i += 8)
     tabs[i] = 1;
   setTopAndBottomMargins(1, SC_H);
   mode.value = defaultMode;
@@ -447,14 +453,14 @@ void scroll() {
     memmove(&screen[idx3], &screen[idx3 + SC_W], n);
     memmove(&attrib[idx3], &attrib[idx3 + SC_W], n);
     memmove(&colors[idx3], &colors[idx3 + SC_W], n);
-    for (uint8_t x = 0; x < SC_W; x++) {
+    for (int x = 0; x < SC_W; x++) {
       idx2 = idx + x;
       screen[idx2] = 0;
       attrib[idx2] = defaultAttr.value;
       colors[idx2] = defaultColor.value;
     }
     lcd.setAddrWindow(MARGIN_LEFT, M_TOP * CH_H + MARGIN_TOP, SP_W, ((M_BOTTOM + 1) * CH_H) - (M_TOP * CH_H));
-    for (uint8_t y = M_TOP; y <= M_BOTTOM; y++)
+    for (int y = M_TOP; y <= M_BOTTOM; y++)
       sc_updateLine(y);
     YP = M_BOTTOM;
   }
@@ -495,6 +501,12 @@ void printChar(char c) {
         // G1 セット シーケンス へ
         clearParams(em::G1S);
         break;
+#ifdef USE_EGR
+      case '*':
+        // EGR セット シーケンス へ
+        clearParams(em::EGR);
+        break;
+#endif
       default:
         // <ESC> xxx: エスケープシーケンス
         switch (c) {
@@ -650,9 +662,9 @@ void printChar(char c) {
         case 'm':
           // SGR (Select Graphic Rendition): 文字修飾の設定
           if (nVals == 0) {
-            nVals = 1; 
+            nVals = 1;
             vals[0] = 0;
-          }  
+          }
           selectGraphicRendition(vals, nVals);
           break;
         case 'n':
@@ -733,6 +745,118 @@ void printChar(char c) {
     clearParams(em::NONE);
     return;
   }
+
+  // "*" EGR シーケンス
+#ifdef USE_EGR
+  if (escMode == em::EGR) {
+    if (isdigit(c)) {
+      // [パラメータ]
+      vals[nVals] = vals[nVals] * 10 + (c - '0');
+      hasParam = true;
+    } else if (c == ';') {
+      // [セパレータ]
+      nVals++;
+      hasParam = false;
+    } else {
+      if (hasParam) nVals++;
+      switch (c) {
+        case 'A':
+          // drawArc
+          lcd.drawArc(vals[0], vals[1], vals[2], vals[3], vals[4], vals[5]);
+          break;
+        case 'a':
+          // fillArc
+          lcd.fillArc(vals[0], vals[1], vals[2], vals[3], vals[4], vals[5]);
+          break;
+        case 'B':
+          // drawBezier
+          if (nVals == 8)
+            lcd.drawBezier(vals[0], vals[1], vals[2], vals[3], vals[4], vals[5], vals[6], vals[7]);
+          else
+            lcd.drawBezier(vals[0], vals[1], vals[2], vals[3], vals[4], vals[5]);
+          break;
+        case 'C':
+          // drawCircle
+          lcd.drawCircle(vals[0], vals[1], vals[2]);
+          break;
+        case 'c':
+          // fillCircle
+          lcd.fillCircle(vals[0], vals[1], vals[2]);
+          break;
+        case 'E':
+          // drawEllipse
+          lcd.drawEllipse(vals[0], vals[1], vals[2], vals[3]);
+          break;
+        case 'e':
+          // fillEllipse
+          lcd.fillEllipse(vals[0], vals[1], vals[2], vals[3]);
+          break;
+        case 'F':
+          // setColor 
+          lcd.setColor(lcd.color565(vals[0], vals[1], vals[2]));
+          break;
+        case 'H':
+          // drawFastHLine
+          lcd.drawFastHLine(vals[0], vals[1], vals[2]);
+          break;
+        case 'K':
+          // setBaseColor 
+          lcd.setBaseColor(lcd.color565(vals[0], vals[1], vals[2]));
+          break;
+        case 'L':
+          // drawLine
+          lcd.drawLine(vals[0], vals[1], vals[2], vals[3]);
+          break;
+        case 'O':
+          // drawRoundRect
+          lcd.drawRoundRect(vals[0], vals[1], vals[2], vals[3], vals[4]);
+          break;
+        case 'o':
+          // fillRoundRect
+          lcd.fillRoundRect(vals[0], vals[1], vals[2], vals[3], vals[4]);
+          break;
+        case 'P':
+          // drawPixel
+          lcd.drawPixel(vals[0], vals[1]);
+          break;
+        case 'R':
+          // drawRect
+          lcd.drawRect(vals[0], vals[1], vals[2], vals[3]);
+          break;
+        case 'r':
+          // fillRect
+          lcd.fillRect(vals[0], vals[1], vals[2], vals[3]);
+          break;
+        case 'S':
+          // clear
+          lcd.clear();
+          break;
+        case 's':
+          // fillScreen
+          lcd.fillScreen();
+          break;
+        case 'T':
+          // drawTriangle
+          lcd.drawTriangle(vals[0], vals[1], vals[2], vals[3], vals[4], vals[5]);
+          break;
+        case 't':
+          // fillTriangle
+          lcd.fillTriangle(vals[0], vals[1], vals[2], vals[3], vals[4], vals[5]);
+          break;
+        case 'V':
+          // drawFastVLine
+          lcd.drawFastVLine(vals[0], vals[1], vals[2]);
+          break;
+        default:
+          // 未確認のシーケンス
+          unknownSequence(escMode, c);
+          break;
+      }
+      clearParams(em::NONE);
+    }
+    return;
+  }
+#endif
 
   // 改行 (LF / VT / FF)
   if ((c == 0x0a) || (c == 0x0b) || (c == 0x0c)) {
@@ -901,7 +1025,7 @@ void cursorPosition(uint8_t y, uint8_t x) {
 // 画面を再描画
 void refreshScreen() {
   lcd.setAddrWindow(MARGIN_LEFT, MARGIN_TOP, SP_W, SP_H);
-  for (uint8_t i = 0; i < SC_H; i++)
+  for (int i = 0; i < SC_H; i++)
     sc_updateLine(i);
 }
 
@@ -939,7 +1063,7 @@ void eraseInDisplay(uint8_t m) {
     memset(&attrib[idx], defaultAttr.value, n);
     memset(&colors[idx], defaultColor.value, n);
     lcd.setAddrWindow(MARGIN_LEFT, sl * CH_H + MARGIN_TOP, SP_W, ((el + 1) * CH_H) - (sl * CH_H));
-    for (uint8_t i = sl; i <= el; i++)
+    for (int i = sl; i <= el; i++)
       sc_updateLine(i);
   }
 }
@@ -997,7 +1121,7 @@ void insertLine(uint8_t v) {
   memset(&attrib[idx], defaultAttr.value, n);
   memset(&colors[idx], defaultColor.value, n);
   lcd.setAddrWindow(MARGIN_LEFT, YP * CH_H + MARGIN_TOP, SP_W, ((M_BOTTOM + 1) * CH_H) - (YP * CH_H));
-  for (uint8_t y = YP; y <= M_BOTTOM; y++)
+  for (int y = YP; y <= M_BOTTOM; y++)
     sc_updateLine(y);
 }
 
@@ -1023,14 +1147,14 @@ void deleteLine(uint8_t v) {
   memset(&attrib[idx3], defaultAttr.value, n);
   memset(&colors[idx3], defaultColor.value, n);
   lcd.setAddrWindow(MARGIN_LEFT, YP * CH_H + MARGIN_TOP, SP_W, ((M_BOTTOM + 1) * CH_H) - (YP * CH_H));
-  for (uint8_t y = YP; y <= M_BOTTOM; y++)
+  for (int y = YP; y <= M_BOTTOM; y++)
     sc_updateLine(y);
 }
 
 // CPR (Cursor Position Report): カーソル位置のレポート
 void cursorPositionReport(uint16_t y, uint16_t x) {
   String s = "\e[" + String(y, DEC) + ";" + String(x, DEC) + "R";
-  for (int i=0; i<s.length(); i++)
+  for (int i = 0; i < s.length(); i++)
     xQueueSend(xQueue, (char *)s.charAt(i), 0);
 }
 
@@ -1038,7 +1162,7 @@ void cursorPositionReport(uint16_t y, uint16_t x) {
 // オプションのレポート
 void deviceAttributes(uint8_t m) {
   String s = "\e[?1;0c";
-  for (int i=0; i<s.length(); i++)
+  for (int i = 0; i < s.length(); i++)
     xQueueSend(xQueue, (char *)s.charAt(i), 0);
 }
 
@@ -1149,6 +1273,7 @@ void selectGraphicRendition(int16_t *vals, int16_t nVals) {
   uint8_t seq = 0;
   uint16_t r, g, b, cIdx;
   bool isFore = true;
+
   for (int16_t i = 0; i < nVals; i++) {
     int16_t v = vals[i];
     switch (seq) {
@@ -1297,7 +1422,7 @@ void deviceStatusReport(uint8_t m) {
     case 5:
       {
         String s = "\e[0n";
-        for (int i=0; i<s.length(); i++)
+        for (int i = 0; i < s.length(); i++)
           xQueueSend(xQueue, (char *)s.charAt(i), 0);
       }
       break;
@@ -1312,28 +1437,28 @@ void loadLEDs(uint8_t m) {
   switch (m) {
     case 0:
       // すべての LED をオフ
-/*
-      digitalWrite(LED_01, LOW);
-      digitalWrite(LED_02, LOW);
-      digitalWrite(LED_03, LOW);
-      digitalWrite(LED_04, LOW);
-*/      
+      /*
+            digitalWrite(LED_01, LOW);
+            digitalWrite(LED_02, LOW);
+            digitalWrite(LED_03, LOW);
+            digitalWrite(LED_04, LOW);
+      */
       break;
     case 1:
       // LED1 をオン
-//      digitalWrite(LED_01, HIGH);
+      //      digitalWrite(LED_01, HIGH);
       break;
     case 2:
       // LED2 をオン
-//      digitalWrite(LED_02, HIGH);
+      //      digitalWrite(LED_02, HIGH);
       break;
     case 3:
       // LED3 をオン
-//      digitalWrite(LED_03, HIGH);
+      //      digitalWrite(LED_03, HIGH);
       break;
     case 4:
       // LED4 をオン
-//      digitalWrite(LED_04, HIGH);
+      //      digitalWrite(LED_04, HIGH);
       break;
   }
 }
@@ -1387,7 +1512,7 @@ void screenAlignmentDisplay() {
   memset(attrib, defaultAttr.value, SCSIZE);
   memset(colors, defaultColor.value, SCSIZE);
   lcd.setAddrWindow(MARGIN_LEFT, MARGIN_TOP, SP_W, SP_H);
-  for (uint8_t y = 0; y < SC_H; y++)
+  for (int y = 0; y < SC_H; y++)
     sc_updateLine(y);
 }
 
@@ -1428,7 +1553,7 @@ void unknownSequence(em m, char c) {
       break;
     case em::CSI2:
       s = s + " [";
-      if (isDECPrivateMode) 
+      if (isDECPrivateMode)
         s = s + "?";
       break;
   }
@@ -1466,23 +1591,23 @@ void setup() {
   xQueue = xQueueCreate( QUEUE_LENGTH, sizeof( uint8_t ) );
 
   // LED の初期化
-/*
-  pinMode(LED_01, OUTPUT);
-  pinMode(LED_02, OUTPUT);
-  pinMode(LED_03, OUTPUT);
-  pinMode(LED_04, OUTPUT);
-  digitalWrite(LED_01, LOW);
-  digitalWrite(LED_02, LOW);
-  digitalWrite(LED_03, LOW);
-  digitalWrite(LED_04, LOW);
-*/
-  
+  /*
+    pinMode(LED_01, OUTPUT);
+    pinMode(LED_02, OUTPUT);
+    pinMode(LED_03, OUTPUT);
+    pinMode(LED_04, OUTPUT);
+    digitalWrite(LED_01, LOW);
+    digitalWrite(LED_02, LOW);
+    digitalWrite(LED_03, LOW);
+    digitalWrite(LED_04, LOW);
+  */
+
   // LCD の初期化
   lcd.init();
   lcd.startWrite();
   lcd.setRotation(1);
   lcd.setColorDepth(16);
-  
+
   fontTop = (uint8_t*)font6x8tt + 3;
   resetToInitialState();
   setCursorToHome();
@@ -1499,16 +1624,16 @@ void setup() {
     pinMode(BTN_PORT[i], INPUT_PULLUP);
 
   // ブザーの初期化
-  pinMode(SPK_PIN, OUTPUT);  
+  pinMode(SPK_PIN, OUTPUT);
 
   // キーボードの初期化
   if (usb.Init())
     DebugSerial.println(F("USB host did not start."));
-  delay( 20 );
+  delay(20);
   digitalWrite(PIN_USB_HOST_ENABLE, LOW);
   digitalWrite(OUTPUT_CTR_5V, HIGH);
 
-//---------RunCPM-----------------------------------------------------
+  //---------RunCPM-----------------------------------------------------
 #ifdef DEBUGLOG
   _sys_deletefile((uint8 *)LogName);
 #endif
@@ -1530,7 +1655,7 @@ void setup() {
       while (true) {
         _puts(CCPHEAD);
         _PatchCPM();
-  Status = 0;
+        Status = 0;
 #ifndef CCP_INTERNAL
         if (!_RamLoad((char *)CCPname, CCPaddr)) {
           _puts("Unable to load the CCP.\r\nCPU halted.\r\n");
@@ -1572,8 +1697,8 @@ void loop() {
     if (digitalRead(SW_PORT[i]) == LOW) {
       prev_sw[i] = true;
     } else {
-      if (prev_sw[i]){
-        for (int l=0; l<3; l++)
+      if (prev_sw[i]) {
+        for (int l = 0; l < 3; l++)
           xQueueSend(xQueue, &SW_CMD[i][l], 0);
         needCursorUpdate = true;
       }
@@ -1586,8 +1711,8 @@ void loop() {
     if (digitalRead(BTN_PORT[i]) == LOW) {
       prev_btn[i] = true;
     } else {
-      if (prev_btn[i]){
-        for (int l=0; l<3; l++)
+      if (prev_btn[i]) {
+        for (int l = 0; l < 3; l++)
           xQueueSend(xQueue, &BTN_CMD[i][l], 0);
         needCursorUpdate = true;
       }
@@ -1599,5 +1724,5 @@ void loop() {
   if (canShowCursor || needCursorUpdate) {
     dispCursor(needCursorUpdate);
     needCursorUpdate = false;
-  }  
+  }
 }
