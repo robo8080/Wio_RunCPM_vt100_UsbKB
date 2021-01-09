@@ -1,9 +1,7 @@
 #ifndef ABSTRACT_H
 #define ABSTRACT_H
 #include <Wire.h>
-#include <TFT_eSPI.h>               // Hardware-specific library
 
-#define CARDKB_ADDR 0x5F
 // スピーカー制御用ピン
 #define SPK_PIN  WIO_BUZZER
 
