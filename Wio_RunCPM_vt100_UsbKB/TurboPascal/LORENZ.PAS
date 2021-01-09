@@ -1,4 +1,4 @@
-program Lorenz;
+program LORENZ;
 {$I EGR.INC}
 {$I CAGRAPH.INC}
 const

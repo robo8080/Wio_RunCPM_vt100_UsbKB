@@ -21,7 +21,7 @@ var
 begin
   InitGraph;
   CA_InitPlot;
-  SetFlipMode(True);
+  CA_SetFlipMode(True);
   for I := 0 to 240 do
   begin
     LowerHorizon[I] := maxint;

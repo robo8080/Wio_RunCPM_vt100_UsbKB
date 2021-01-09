@@ -2,7 +2,7 @@
 { https://oku.edu.mie-u.ac.jp/~okumura/algo/algo_pas.html }
 
 const
-  CMaxY = 240; // Wio Terminal
+  CMaxY = 240;
 
 var
   LastX, LastY: Real;
