@@ -24,7 +24,7 @@ end;
 
 procedure CA_Dot(X, Y: Integer);
 begin
-  DrawPixel(x, FlipY(y));
+  DrawPixel(X, FlipY(Y));
 end;
 
 procedure CA_Line(X1, Y1, X2, Y2: Integer);
