@@ -1,22 +1,40 @@
 {* CAGRAPH.INC *}
 { https://oku.edu.mie-u.ac.jp/~okumura/algo/algo_pas.html }
 
+const
+  CMaxY = 240; // Wio Terminal
+
 var
   LastX, LastY: Real;
+  UseFlip: Boolean;
+
+
+function FlipY(Y: Integer): Integer;
+begin
+  if UseFlip then
+    FlipY := CMaxY - Y
+  else
+    FlipY := Y;
+end;
+
+procedure CA_SetFlipMode(Flip: Boolean);
+begin
+  UseFlip := Flip;
+end;
 
 procedure CA_Dot(X, Y: Integer);
 begin
-  DrawPixel(x, y);
+  DrawPixel(x, FlipY(y));
 end;
 
 procedure CA_Line(X1, Y1, X2, Y2: Integer);
 begin
-  DrawLine(X1, Y1, X2, Y2);
+  DrawLine(X1, FlipY(Y1), X2, FlipY(Y2));
 end;
 
 procedure CA_Circle(Xcenter, Ycenter, Radius: Integer);
 begin
-  DrawCircle(Xcenter, Ycenter, Radius);
+  DrawCircle(Xcenter, FlipY(Ycenter), Radius);
 end;
 
 procedure CA_MoveAbsolute(X, Y: Real);
@@ -27,6 +45,7 @@ end;
 
 procedure CA_InitPlot;
 begin
+  CA_SetFlipMode(False);
   CA_MoveAbsolute(0, 0);
 end;
 
