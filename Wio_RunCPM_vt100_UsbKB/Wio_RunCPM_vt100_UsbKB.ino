@@ -284,7 +284,6 @@ QueueHandle_t xQueue;
 
 // -----------------------------------------------------------------------------
 
-
 // イベント: キーを押した
 void keyPressed() {
   //printKey();
@@ -392,7 +391,7 @@ void dispCursor(bool forceupdate) {
   if (escMode != em::NONE)
     return;
   if (hideCursor)
-    return;    
+    return;
   if (!forceupdate)
     isShowCursor = !isShowCursor;
   if (isShowCursor)
@@ -775,17 +774,17 @@ void printChar(char c) {
   if (escMode == em::EGR) {
     if (isdigit(c) || c == '-') {
       // [パラメータ]
-      if (c != '-') 
+      if (c != '-')
         vals[nVals] = vals[nVals] * 10 + (c - '0');
       else
-        isNegative = true;     
+        isNegative = true;
       hasParam = true;
     } else if (c == ';') {
       // [セパレータ]
       if (isNegative) vals[nVals] = -vals[nVals];
       nVals++;
       hasParam = false;
-      isNegative = false;  
+      isNegative = false;
     } else {
       if (isNegative) vals[nVals] = -vals[nVals];
       if (hasParam) nVals++;
@@ -822,7 +821,7 @@ void printChar(char c) {
           lcd.fillEllipse(vals[0], vals[1], vals[2], vals[3]);
           break;
         case 'F':
-          // setColor 
+          // setColor
           lcd.setColor(lcd.color565(vals[0], vals[1], vals[2]));
           break;
         case 'H':
@@ -832,13 +831,13 @@ void printChar(char c) {
         case 'h':
           // カーソル表示/非表示
           hideCursor = (nVals != 0) && (vals[0] == 1);
-          if (hideCursor) 
+          if (hideCursor)
             sc_updateChar(p_XP, p_YP);
           p_XP = XP;
           p_YP = YP;
           break;
         case 'K':
-          // setBaseColor 
+          // setBaseColor
           lcd.setBaseColor(lcd.color565(vals[0], vals[1], vals[2]));
           break;
         case 'L':
@@ -1100,7 +1099,7 @@ void eraseInDisplay(uint8_t m) {
     memset(&screen[idx], 0x00, n);
     memset(&attrib[idx], defaultAttr.value, n);
     memset(&colors[idx], defaultColor.value, n);
-    if (m == 2) 
+    if (m == 2)
       lcd.clear(aColors[defaultColor.Color.Background]);
     else {
       lcd.setAddrWindow(MARGIN_LEFT, sl * CH_H + MARGIN_TOP, SP_W, ((el + 1) * CH_H) - (sl * CH_H));
