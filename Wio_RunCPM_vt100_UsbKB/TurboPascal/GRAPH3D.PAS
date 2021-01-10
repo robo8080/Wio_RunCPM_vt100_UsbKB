@@ -54,5 +54,7 @@ begin
         CA_MoveAbsolute(Px div 8, Py div 8);
       LastOk := Ok
     end
-  end
+  end;
+  Readln:
+  ClrScr;
 end.
