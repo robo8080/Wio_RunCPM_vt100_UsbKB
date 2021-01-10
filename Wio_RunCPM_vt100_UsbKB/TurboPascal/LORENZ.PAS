@@ -28,4 +28,5 @@ begin
         CA_MoveAbsolute((x + 30) * Scale, z * Scale);
     end;
   Readln;
+  ClrScr;
 end.
