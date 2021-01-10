@@ -207,6 +207,7 @@ bool isShowCursor = false;     // カーソル表示中か？
 bool canShowCursor = false;    // カーソル表示可能か？
 bool lastShowCursor = false;   // 前回のカーソル表示状態
 bool hasParam = false;         // <ESC> [ がパラメータを持っているか？
+bool isNegative = false;       // パラメータにマイナス符号が付いているか？
 bool isDECPrivateMode = false; // DEC Private Mode (<ESC> [ ?)
 union MODE mode = {defaultMode};
 union MODE_EX mode_ex = {defaultModeEx};
@@ -255,7 +256,7 @@ int16_t prev_YP = 0;
 union ATTR bAttr   = defaultAttr;
 union COLOR bColor = defaultColor;
 
-// CSI パラメータ
+// CSI / EGR パラメータ
 int16_t nVals = 0;
 int16_t vals[10] = {0};
 
@@ -474,6 +475,7 @@ void clearParams(em m) {
   nVals = 0;
   vals[0] = vals[1] = vals[2] = vals[3] = 0;
   hasParam = false;
+  isNegative = false;
 }
 
 // 文字描画
@@ -750,15 +752,21 @@ void printChar(char c) {
   // "*" EGR シーケンス
 #ifdef USE_EGR
   if (escMode == em::EGR) {
-    if (isdigit(c)) {
+    if (isdigit(c) || c == '-') {
       // [パラメータ]
-      vals[nVals] = vals[nVals] * 10 + (c - '0');
+      if (c != '-') 
+        vals[nVals] = vals[nVals] * 10 + (c - '0');
+      else
+        isNegative = true;     
       hasParam = true;
     } else if (c == ';') {
       // [セパレータ]
+      if (isNegative) vals[nVals] = -vals[nVals];
       nVals++;
       hasParam = false;
+      isNegative = false;  
     } else {
+      if (isNegative) vals[nVals] = -vals[nVals];
       if (hasParam) nVals++;
       switch (c) {
         case 'A':
