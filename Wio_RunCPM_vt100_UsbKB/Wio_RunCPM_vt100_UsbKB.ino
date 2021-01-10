@@ -1,4 +1,5 @@
 //------VT100_WT---------------------------------------------------------
+
 #include <Arduino.h>
 #include <Seeed_Arduino_FreeRTOS.h>
 #include <SPI.h>
@@ -7,12 +8,8 @@
 #include <Reset.h>
 #include <KeyboardController.h>
 
-//#include <font6x8tt.h>            // 6x8 ドットフォント (TTBASIC 付属)
-//#include "font6x8e200.h"          // 6x8 ドットフォント (SHARP PC-E200 風)
-//#include "font6x8e500.h"          // 6x8 ドットフォント (SHARP PC-E500 風)
-#include "font6x8sc1602b.h"       // 6x8 ドットフォント (SUNLIKE SC1602B 風)
-
 //------RunCPM-----------------------------------------------------------
+
 #include "globals.h"
 #include <SdFat.h>
 #include "hardware/wioterm.h"
@@ -42,7 +39,33 @@ int lst_open = FALSE;
 #ifdef CCP_INTERNAL
 #include "ccp.h"
 #endif
-//-----------------------------------------------------------------
+
+//------Settings---------------------------------------------------------
+
+// フォント
+//#include <font6x8tt.h>            // 6x8 ドットフォント (TTBASIC 付属)
+//#include "font6x8e200.h"          // 6x8 ドットフォント (SHARP PC-E200 風)
+//#include "font6x8e500.h"          // 6x8 ドットフォント (SHARP PC-E500 風)
+#include "font6x8sc1602b.h"       // 6x8 ドットフォント (SUNLIKE SC1602B 風)
+
+// フォント管理用
+#define CH_W        6       // フォント横サイズ
+#define CH_H        8       // フォント縦サイズ
+
+// スクリーン管理用
+#define RSP_W       320     // 実ピクセルスクリーン横サイズ
+#define RSP_H       240     // 実ピクセルスクリーン縦サイズ
+#define SC_W        52      // キャラクタスクリーン横サイズ (<= 53)
+#define SC_H        29      // キャラクタスクリーン縦サイズ (<= 30)
+
+// 色
+#define FORE_COLOR  clWhite // 初期前景色
+#define BACK_COLOR  clBlue  // 初期背景色
+
+// エスケープシーケンス
+#define USE_EGR             // EGR 拡張
+
+//-----------------------------------------------------------------------
 
 // シリアル
 #define DebugSerial Serial1
@@ -63,23 +86,11 @@ USBHost usb;
 
 // キーボード制御用
 KeyboardController keyboard(usb);
-
 int key;
 void printKey();
 
-// フォント管理用
+// フォント先頭アドレス
 uint8_t* fontTop;
-#define CH_W    6     // フォント横サイズ
-#define CH_H    8     // フォント縦サイズ
-
-// スクリーン管理用
-#define RSP_W   320   // 実ピクセルスクリーン横サイズ
-#define RSP_H   240   // 実ピクセルスクリーン縦サイズ
-#define SC_W    52    // キャラクタスクリーン横サイズ (<= 53)
-#define SC_H    29    // キャラクタスクリーン縦サイズ (<= 30)
-
-// EGR 拡張を行うか？
-#define USE_EGR
 
 // 座標やサイズのプレ計算
 PROGMEM const uint16_t SCSIZE      = SC_W * SC_H;        // キャラクタスクリーンサイズ
@@ -199,7 +210,7 @@ PROGMEM enum class em {NONE,  ES, CSI, CSI2, LSC, G0S, G1S, EGR};
 PROGMEM uint8_t defaultMode = 0b00001000;
 PROGMEM uint16_t defaultModeEx = 0b0000000001000000;
 PROGMEM const union ATTR defaultAttr = {0b00000000};
-PROGMEM const union COLOR defaultColor = {(clBlue << 4) | clWhite}; // back, fore
+PROGMEM const union COLOR defaultColor = {(BACK_COLOR << 4) | FORE_COLOR};
 
 // 状態
 em escMode = em::NONE;         // エスケープシーケンスモード
@@ -263,6 +274,11 @@ int16_t vals[10] = {0};
 // カーソル描画用
 bool needCursorUpdate = false;
 bool hideCursor = false;
+
+// キュー
+#define QUEUE_LENGTH 100
+QueueHandle_t xQueue;
+
 
 // 関数
 // -----------------------------------------------------------------------------
@@ -814,8 +830,10 @@ void printChar(char c) {
         case 'h':
           // カーソル表示/非表示
           hideCursor = (nVals != 0) && (vals[0] == 1);
-          if (hideCursor)
+          if (hideCursor) 
             sc_updateChar(p_XP, p_YP);
+          p_XP = XP;
+          p_YP = YP;
           break;
         case 'K':
           // setBaseColor 
@@ -1290,6 +1308,8 @@ void decResetMode(int16_t *vals, int16_t nVals) {
         // DECTCEM (Text Cursor Enable Mode): テキストカーソル有効モード
         hideCursor = true;
         sc_updateChar(p_XP, p_YP);
+        p_XP = XP;
+        p_YP = YP;
         break;
       default:
         DebugSerial.print(F("Unimplement: decResetMode "));
@@ -1597,12 +1617,6 @@ void unknownSequence(em m, char c) {
   DebugSerial.print(c);
 }
 
-// -----------------------------------------------------------------------------
-// キューの大きさ
-#define QUEUE_LENGTH 100
-// 通常のキュー
-QueueHandle_t xQueue;
-
 // タイマーハンドラ
 void handle_timer() {
   canShowCursor = true;
@@ -1618,7 +1632,9 @@ void playTone(int pin, int tone, int duration) {
   }
 }
 
+//-----------------------------------------------------------------------
 // セットアップ
+//-----------------------------------------------------------------------
 void setup() {
   DebugSerial.begin(115200);
   delay(500);
@@ -1667,7 +1683,6 @@ void setup() {
   digitalWrite(PIN_USB_HOST_ENABLE, LOW);
   digitalWrite(OUTPUT_CTR_5V, HIGH);
 
-  //---------RunCPM-----------------------------------------------------
 #ifdef DEBUGLOG
   _sys_deletefile((uint8 *)LogName);
 #endif
@@ -1719,10 +1734,11 @@ void setup() {
   } else {
     _puts("Unable to initialize SD card.\r\nCPU halted.\r\n");
   }
-
 }
 
+//-----------------------------------------------------------------------
 // ループ
+//-----------------------------------------------------------------------
 void loop() {
   usb.Task();
 
