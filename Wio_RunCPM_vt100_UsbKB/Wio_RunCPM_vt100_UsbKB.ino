@@ -262,6 +262,7 @@ int16_t vals[10] = {0};
 
 // カーソル描画用
 bool needCursorUpdate = false;
+bool hideCursor = false;
 
 // 関数
 // -----------------------------------------------------------------------------
@@ -372,6 +373,8 @@ void drawCursor(uint16_t x, uint16_t y) {
 void dispCursor(bool forceupdate) {
   if (escMode != em::NONE)
     return;
+  if (hideCursor)
+    return;    
   if (!forceupdate)
     isShowCursor = !isShowCursor;
   if (isShowCursor)
@@ -807,6 +810,12 @@ void printChar(char c) {
         case 'H':
           // drawFastHLine
           lcd.drawFastHLine(vals[0], vals[1], vals[2]);
+          break;
+        case 'h':
+          // カーソル表示/非表示
+          hideCursor = (nVals != 0) && (vals[0] == 1);
+          if (hideCursor)
+            sc_updateChar(p_XP, p_YP);
           break;
         case 'K':
           // setBaseColor 
