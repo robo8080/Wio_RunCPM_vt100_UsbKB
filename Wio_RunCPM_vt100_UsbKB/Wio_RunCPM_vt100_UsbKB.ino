@@ -1578,6 +1578,9 @@ void unknownSequence(em m, char c) {
       if (isDECPrivateMode)
         s = s + "?";
       break;
+    case em::EGR:
+      s = s + " %";
+      break;
   }
   DebugSerial.print(F("Unknown: "));
   DebugSerial.print(s);
