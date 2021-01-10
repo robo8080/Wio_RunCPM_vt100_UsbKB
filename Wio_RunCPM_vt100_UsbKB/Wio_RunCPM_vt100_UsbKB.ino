@@ -505,7 +505,7 @@ void printChar(char c) {
         clearParams(em::G1S);
         break;
 #ifdef USE_EGR
-      case '*':
+      case '%':
         // EGR セット シーケンス へ
         clearParams(em::EGR);
         break;
@@ -749,7 +749,7 @@ void printChar(char c) {
     return;
   }
 
-  // "*" EGR シーケンス
+  // "%" EGR シーケンス
 #ifdef USE_EGR
   if (escMode == em::EGR) {
     if (isdigit(c) || c == '-') {
