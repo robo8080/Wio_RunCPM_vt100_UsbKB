@@ -1246,6 +1246,10 @@ void decSetMode(int16_t *vals, int16_t nVals) {
         // DECAWM (Auto Wrap Mode): 自動折り返しモード
         autoWrapMode(true);
         break;
+      case 25:
+        // DECTCEM (Text Cursor Enable Mode): テキストカーソル有効モード
+        hideCursor = false;
+        break;
       default:
         DebugSerial.print(F("Unimplement: decSetMode "));
         DebugSerial.println(String(vals[i], DEC));
@@ -1281,6 +1285,11 @@ void decResetMode(int16_t *vals, int16_t nVals) {
       case 7:
         // DECAWM (Auto Wrap Mode): 自動折り返しモード
         autoWrapMode(false);
+        break;
+      case 25:
+        // DECTCEM (Text Cursor Enable Mode): テキストカーソル有効モード
+        hideCursor = true;
+        sc_updateChar(p_XP, p_YP);
         break;
       default:
         DebugSerial.print(F("Unimplement: decResetMode "));
