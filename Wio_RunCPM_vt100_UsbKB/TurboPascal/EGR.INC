@@ -1,7 +1,7 @@
 {* EGR.INC *}
 
 const
-  _EGR = #$1B'*';
+  _EGR = #$1B'%';
 
   procedure Clear;
   begin
