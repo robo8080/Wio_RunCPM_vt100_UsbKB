@@ -19,6 +19,7 @@ var
   end; { Func }
 
 begin
+  HideCursor(True);
   InitGraph;
   CA_InitPlot;
   CA_SetFlipMode(True);
@@ -55,6 +56,7 @@ begin
       LastOk := Ok
     end
   end;
+  HideCursor(False);
   Readln:
   ClrScr;
 end.
