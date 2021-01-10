@@ -38,7 +38,12 @@ const
     Write(_EGR, x, ';', y, ';', w, 'H');
   end;
 
-  procedure DrawFastVLine(x, y, h: Integer);
+  procedure HideCursor(Flg: Boolean);
+  begin
+    Write(_EGR, Ord(Flg), 'h');
+  end;
+
+procedure DrawFastVLine(x, y, h: Integer);
   begin
     Write(_EGR, x, ';', y, ';', h, 'V');
   end;
