@@ -1,4 +1,4 @@
-program Lorenz;
+program LORENZ;
 {$I EGR.INC}
 {$I CAGRAPH.INC}
 const
@@ -11,6 +11,7 @@ var
   k: Integer;
   x, y, z, dx, dy, dz: Real;
 begin
+  HideCursor(True);  
   InitGraph;
   CA_InitPlot;
   x := 1; y := 1; z := 1;
@@ -27,5 +28,7 @@ begin
       else
         CA_MoveAbsolute((x + 30) * Scale, z * Scale);
     end;
+  HideCursor(False);  
   Readln;
+  ClrScr;
 end.

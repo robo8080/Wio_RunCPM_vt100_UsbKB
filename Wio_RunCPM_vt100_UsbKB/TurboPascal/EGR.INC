@@ -1,7 +1,7 @@
 {* EGR.INC *}
 
 const
-  _EGR = #$1B'*';
+  _EGR = #$1B'%';
 
   procedure Clear;
   begin
@@ -38,7 +38,12 @@ const
     Write(_EGR, x, ';', y, ';', w, 'H');
   end;
 
-  procedure DrawFastVLine(x, y, h: Integer);
+  procedure HideCursor(Flg: Boolean);
+  begin
+    Write(_EGR, Ord(Flg), 'h');
+  end;
+
+procedure DrawFastVLine(x, y, h: Integer);
   begin
     Write(_EGR, x, ';', y, ';', h, 'V');
   end;
@@ -116,7 +121,7 @@ const
   procedure InitGraph;
   begin
     Write(#$1B'[H'#$1B'[2J');
-    SetColor(255, 255, 255);
     SetBaseColor(0, 0, 0);
     Clear;
+    SetColor(255, 255, 255);
   end;

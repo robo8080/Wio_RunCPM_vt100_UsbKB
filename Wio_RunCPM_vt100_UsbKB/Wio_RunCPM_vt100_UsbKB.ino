@@ -207,6 +207,7 @@ bool isShowCursor = false;     // カーソル表示中か？
 bool canShowCursor = false;    // カーソル表示可能か？
 bool lastShowCursor = false;   // 前回のカーソル表示状態
 bool hasParam = false;         // <ESC> [ がパラメータを持っているか？
+bool isNegative = false;       // パラメータにマイナス符号が付いているか？
 bool isDECPrivateMode = false; // DEC Private Mode (<ESC> [ ?)
 union MODE mode = {defaultMode};
 union MODE_EX mode_ex = {defaultModeEx};
@@ -255,12 +256,13 @@ int16_t prev_YP = 0;
 union ATTR bAttr   = defaultAttr;
 union COLOR bColor = defaultColor;
 
-// CSI パラメータ
+// CSI / EGR パラメータ
 int16_t nVals = 0;
 int16_t vals[10] = {0};
 
 // カーソル描画用
 bool needCursorUpdate = false;
+bool hideCursor = false;
 
 // 関数
 // -----------------------------------------------------------------------------
@@ -371,6 +373,8 @@ void drawCursor(uint16_t x, uint16_t y) {
 void dispCursor(bool forceupdate) {
   if (escMode != em::NONE)
     return;
+  if (hideCursor)
+    return;    
   if (!forceupdate)
     isShowCursor = !isShowCursor;
   if (isShowCursor)
@@ -474,6 +478,7 @@ void clearParams(em m) {
   nVals = 0;
   vals[0] = vals[1] = vals[2] = vals[3] = 0;
   hasParam = false;
+  isNegative = false;
 }
 
 // 文字描画
@@ -503,7 +508,7 @@ void printChar(char c) {
         clearParams(em::G1S);
         break;
 #ifdef USE_EGR
-      case '*':
+      case '%':
         // EGR セット シーケンス へ
         clearParams(em::EGR);
         break;
@@ -747,18 +752,24 @@ void printChar(char c) {
     return;
   }
 
-  // "*" EGR シーケンス
+  // "%" EGR シーケンス
 #ifdef USE_EGR
   if (escMode == em::EGR) {
-    if (isdigit(c)) {
+    if (isdigit(c) || c == '-') {
       // [パラメータ]
-      vals[nVals] = vals[nVals] * 10 + (c - '0');
+      if (c != '-') 
+        vals[nVals] = vals[nVals] * 10 + (c - '0');
+      else
+        isNegative = true;     
       hasParam = true;
     } else if (c == ';') {
       // [セパレータ]
+      if (isNegative) vals[nVals] = -vals[nVals];
       nVals++;
       hasParam = false;
+      isNegative = false;  
     } else {
+      if (isNegative) vals[nVals] = -vals[nVals];
       if (hasParam) nVals++;
       switch (c) {
         case 'A':
@@ -799,6 +810,12 @@ void printChar(char c) {
         case 'H':
           // drawFastHLine
           lcd.drawFastHLine(vals[0], vals[1], vals[2]);
+          break;
+        case 'h':
+          // カーソル表示/非表示
+          hideCursor = (nVals != 0) && (vals[0] == 1);
+          if (hideCursor)
+            sc_updateChar(p_XP, p_YP);
           break;
         case 'K':
           // setBaseColor 
@@ -1229,6 +1246,10 @@ void decSetMode(int16_t *vals, int16_t nVals) {
         // DECAWM (Auto Wrap Mode): 自動折り返しモード
         autoWrapMode(true);
         break;
+      case 25:
+        // DECTCEM (Text Cursor Enable Mode): テキストカーソル有効モード
+        hideCursor = false;
+        break;
       default:
         DebugSerial.print(F("Unimplement: decSetMode "));
         DebugSerial.println(String(vals[i], DEC));
@@ -1264,6 +1285,11 @@ void decResetMode(int16_t *vals, int16_t nVals) {
       case 7:
         // DECAWM (Auto Wrap Mode): 自動折り返しモード
         autoWrapMode(false);
+        break;
+      case 25:
+        // DECTCEM (Text Cursor Enable Mode): テキストカーソル有効モード
+        hideCursor = true;
+        sc_updateChar(p_XP, p_YP);
         break;
       default:
         DebugSerial.print(F("Unimplement: decResetMode "));
@@ -1560,6 +1586,9 @@ void unknownSequence(em m, char c) {
       s = s + " [";
       if (isDECPrivateMode)
         s = s + "?";
+      break;
+    case em::EGR:
+      s = s + " %";
       break;
   }
   DebugSerial.print(F("Unknown: "));
