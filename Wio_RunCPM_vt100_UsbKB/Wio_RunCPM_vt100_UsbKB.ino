@@ -279,16 +279,23 @@ bool hideCursor = false;
 #define QUEUE_LENGTH 100
 QueueHandle_t xQueue;
 
+// 交換
+#define swap(a, b) { uint16_t t = a; a = b; b = t; }
+
 // -----------------------------------------------------------------------------
 
+
+// イベント: キーを押した
 void keyPressed() {
   //printKey();
 }
 
+// イベント: キーを離した
 void keyReleased() {
   printKey();
 }
 
+// キー押下処理
 void printKey() {
   char c = keyboard.getKey();
   needCursorUpdate = c;
@@ -336,9 +343,6 @@ void printKey() {
     }
   }
 }
-
-// 交換
-#define swap(a, b) { uint16_t t = a; a = b; b = t; }
 
 // 指定位置の文字の更新表示
 void sc_updateChar(uint16_t x, uint16_t y) {
