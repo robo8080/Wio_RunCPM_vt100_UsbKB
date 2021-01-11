@@ -237,18 +237,18 @@ union MODE_EX mode_ex = {defaultModeEx};
 
 /********************************************
   キーボードと Wio Terminal のボタンとスイッチの対応
-  +------------+--------------+-----------+
-  | キーボード | Wio Terminal | ESC SEQ   |
-  +------------+--------------+-----------+
-  | [F3]       | WIO_KEY_C    | [ESC] [ P |
-  | [F4]       | WIO_KEY_B    | [ESC] [ Q |
-  | [F5]       | WIO_KEY_A    | [ESC] [ R |
-  | [UP]       | WIO_5S_UP    | [ESC] [ A |
-  | [DOWN]     | WIO_5S_DOWN  | [ESC] [ B |
-  | [RIGHT]    | WIO_5S_RIGHT | [ESC] [ C |
-  | [LEFT]     | WIO_5S_LEFT  | [ESC] [ D |
-  | [ENTER]    | WIO_5S_PRESS | [CR]      |
-  +------------+--------------+-----------+
+  +-------------+--------------+-----------+
+  | キーボード  | Wio Terminal |  ESC SEQ  |
+  +-------------+--------------+-----------+
+  | [F1]        | WIO_KEY_C    | [ESC] [ P |
+  | [F2]        | WIO_KEY_B    | [ESC] [ Q |
+  | [F3]        | WIO_KEY_A    | [ESC] [ R |
+  | [UP]        | WIO_5S_UP    | [ESC] [ A |
+  | [DOWN]      | WIO_5S_DOWN  | [ESC] [ B |
+  | [RIGHT]     | WIO_5S_RIGHT | [ESC] [ C |
+  | [LEFT]      | WIO_5S_LEFT  | [ESC] [ D |
+  | [ENTER]     | WIO_5S_PRESS | [CR]      |
+  +-------------+--------------+-----------+
 ********************************************/
 
 // キー
@@ -258,14 +258,18 @@ void printKey();
 // スイッチ情報
 enum WIO_SW {SW_UP, SW_DOWN, SW_RIGHT, SW_LEFT, SW_PRESS};
 PROGMEM const int SW_PORT[5] = {WIO_5S_UP, WIO_5S_DOWN, WIO_5S_RIGHT, WIO_5S_LEFT, WIO_5S_PRESS};
-PROGMEM const char SW_CMD[5][4] = {"\e[A", "\e[B", "\e[C", "\e[D", "\r"};
+PROGMEM const char SW_CMD[5][4] = {"\eOA", "\eOB", "\eOC", "\eOD", "\r"};
 bool prev_sw[5] = {false, false, false, false, false};
 
 // ボタン情報
 enum WIO_BTN {BT_A, BT_B, BT_C};
 PROGMEM const int BTN_PORT[3] = {WIO_KEY_A, WIO_KEY_B, WIO_KEY_C};
-PROGMEM const char BTN_CMD[3][4] = {"\e[R", "\e[Q", "\e[P"};
+PROGMEM const char BTN_CMD[3][4] = {"\eOR", "\eOQ", "\eOP"};
 bool prev_btn[3] = {false, false, false};
+
+// 特殊キー情報
+enum SP_KEY {KY_HOME, KY_INS, KY_DEL, KY_END, KY_PGUP, KY_PGDOWN};
+PROGMEM const char KEY_CMD[6][4] = {"\eO1", "\eO2", "\eO3", "\eO4", "\eO5", "\eO6"};
 
 // 前回位置情報
 int16_t p_XP = 0;
@@ -327,21 +331,41 @@ void printKey() {
     int key = keyboard.getOemKey();
     int mod = keyboard.getModifiers();
     switch (key) {
-      case 60: // F3 (Wio Button #3)
+      case 58: // F1 (Wio Button #3)
         for (int l = 0; l < 3; l++)
           xQueueSend(xQueue, &BTN_CMD[BT_C][l], 0);
         break;
-      case 61: // F4 (Wio Button #2)
+      case 59: // F2 (Wio Button #2)
         for (int l = 0; l < 3; l++)
           xQueueSend(xQueue, &BTN_CMD[BT_B][l], 0);
         break;
-      case 62: // F5 (Wio Button #1)
+      case 60: // F3 (Wio Button #1)
         for (int l = 0; l < 3; l++)
           xQueueSend(xQueue, &BTN_CMD[BT_A][l], 0);
+        break;
+      case 73: // Insert
+        for (int l = 0; l < 3; l++)
+          xQueueSend(xQueue, &KEY_CMD[KY_INS][l], 0);
+        break;
+      case 74: // Home
+        for (int l = 0; l < 3; l++)
+          xQueueSend(xQueue, &KEY_CMD[KY_HOME][l], 0);
+        break;
+      case 75: // Page Up
+        for (int l = 0; l < 3; l++)
+          xQueueSend(xQueue, &KEY_CMD[KY_PGUP][l], 0);
         break;
       case 76: // DEL
         c = char(127);
         xQueueSend(xQueue, &c, 0);
+        break;
+      case 77: // End
+        for (int l = 0; l < 3; l++)
+          xQueueSend(xQueue, &KEY_CMD[KY_END][l], 0);
+        break;
+      case 78: // Page Down
+        for (int l = 0; l < 3; l++)
+          xQueueSend(xQueue, &KEY_CMD[KY_PGDOWN][l], 0);
         break;
       case 79: // RIGHT (Wio Switch #3)
         for (int l = 0; l < 3; l++)
