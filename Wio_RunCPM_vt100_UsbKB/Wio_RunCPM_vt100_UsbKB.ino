@@ -1,10 +1,27 @@
+/************************************************************/
+/*                                                          */
+/*        RunCPM + VT100 Emulator for Wio Termainal         */
+/*                                                          */
+/*   Wio_RunCPM_vt100_UsbKB                                 */
+/*     https://github.com/robo8080/Wio_RunCPM_vt100_UsbKB   */
+/*                                                          */
+/*   RunCPM - Z80 CP/M 2.2 emulator                         */
+/*     https://github.com/MockbaTheBorg/RunCPM              */
+/*   VT100 Terminal Emulator for Wio Terminal               */
+/*     https://github.com/ht-deko/vt100_wt                  */
+/*                                                          */
+/************************************************************/
+
 //------VT100_WT---------------------------------------------------------
 
 #include <Arduino.h>
 #include <Seeed_Arduino_FreeRTOS.h>
+// https://github.com/Seeed-Studio/Seeed_Arduino_FreeRTOS
 #include <SPI.h>
 #include <LovyanGFX.hpp>
+// https://github.com/lovyan03/LovyanGFX
 #include <SAMD51_InterruptTimer.h>
+// https://github.com/Dennis-van-Gils/SAMD51_InterruptTimer
 #include <Reset.h>
 #include <KeyboardController.h>
 
@@ -12,6 +29,7 @@
 
 #include "globals.h"
 #include <SdFat.h>
+// https://github.com/greiman/SdFat
 #include "hardware/wioterm.h"
 #include "abstraction_arduino.h"
 
@@ -43,10 +61,10 @@ int lst_open = FALSE;
 //------Settings---------------------------------------------------------
 
 // フォント
-//#include <font6x8tt.h>            // 6x8 ドットフォント (TTBASIC 付属)
-//#include "font6x8e200.h"          // 6x8 ドットフォント (SHARP PC-E200 風)
-//#include "font6x8e500.h"          // 6x8 ドットフォント (SHARP PC-E500 風)
-#include "font6x8sc1602b.h"       // 6x8 ドットフォント (SUNLIKE SC1602B 風)
+//#include <font6x8tt.h>      // 6x8 ドットフォント (TTBASIC 付属)
+//#include "font6x8e200.h"    // 6x8 ドットフォント (SHARP PC-E200 風)
+//#include "font6x8e500.h"    // 6x8 ドットフォント (SHARP PC-E500 風)
+#include "font6x8sc1602b.h" // 6x8 ドットフォント (SUNLIKE SC1602B 風)
 
 // フォント管理用
 #define CH_W        6       // フォント横サイズ
@@ -67,6 +85,9 @@ int lst_open = FALSE;
 
 //-----------------------------------------------------------------------
 
+// 交換
+#define swap(a, b) { uint16_t t = a; a = b; b = t; }
+
 // シリアル
 #define DebugSerial Serial1
 
@@ -77,37 +98,6 @@ int lst_open = FALSE;
   #define LED_03  D4
   #define LED_04  D5
 */
-
-// LCD 制御用
-static LGFX lcd;
-
-// USB 制御用
-USBHost usb;
-
-// キーボード制御用
-KeyboardController keyboard(usb);
-int key;
-void printKey();
-
-// フォント先頭アドレス
-uint8_t* fontTop;
-
-// 座標やサイズのプレ計算
-PROGMEM const uint16_t SCSIZE      = SC_W * SC_H;        // キャラクタスクリーンサイズ
-PROGMEM const uint16_t SP_W        = SC_W * CH_W;        // ピクセルスクリーン横サイズ
-PROGMEM const uint16_t SP_H        = SC_H * CH_H;        // ピクセルスクリーン縦サイズ
-PROGMEM const uint16_t MAX_CH_X    = CH_W - 1;           // フォント最大横位置
-PROGMEM const uint16_t MAX_CH_Y    = CH_H - 1;           // フォント最大縦位置
-PROGMEM const uint16_t MAX_SC_X    = SC_W - 1;           // キャラクタスクリーン最大横位置
-PROGMEM const uint16_t MAX_SC_Y    = SC_H - 1;           // キャラクタスクリーン最大縦位置
-PROGMEM const uint16_t MAX_SP_X    = SP_W - 1;           // ピクセルスクリーン最大横位置
-PROGMEM const uint16_t MAX_SP_Y    = SP_H - 1;           // ピクセルスクリーン最大縦位置
-PROGMEM const uint16_t MARGIN_LEFT = (RSP_W - SP_W) / 2; // 左マージン
-PROGMEM const uint16_t MARGIN_TOP  = (RSP_H - SP_H) / 2; // 上マージン
-
-// スクロール有効行
-uint16_t M_TOP    = 0;                  // スクロール行上限
-uint16_t M_BOTTOM = MAX_SC_Y;           // スクロール行下限
 
 // 文字アトリビュート用
 struct TATTR {
@@ -147,15 +137,6 @@ PROGMEM const uint16_t aColors[] = {
   0x07ff, // cyan
   0xe73c  // white
 };
-
-PROGMEM const uint8_t clBlack   = 0;
-PROGMEM const uint8_t clRed     = 1;
-PROGMEM const uint8_t clGreen   = 2;
-PROGMEM const uint8_t clYellow  = 3;
-PROGMEM const uint8_t clBlue    = 4;
-PROGMEM const uint8_t clMagenta = 5;
-PROGMEM const uint8_t clCyan    = 6;
-PROGMEM const uint8_t clWhite   = 7;
 
 struct TCOLOR {
   uint8_t Foreground : 4;
@@ -200,19 +181,50 @@ union MODE_EX {
   struct TMODE_EX Flgs;
 };
 
-// バッファ
-uint8_t screen[SCSIZE];      // スクリーンバッファ
-uint8_t attrib[SCSIZE];      // 文字アトリビュートバッファ
-uint8_t colors[SCSIZE];      // カラーアトリビュートバッファ
-uint8_t tabs[SC_W];          // タブ位置バッファ
+// 座標やサイズのプレ計算
+PROGMEM const uint16_t SCSIZE      = SC_W * SC_H;        // キャラクタスクリーンサイズ
+PROGMEM const uint16_t SP_W        = SC_W * CH_W;        // ピクセルスクリーン横サイズ
+PROGMEM const uint16_t SP_H        = SC_H * CH_H;        // ピクセルスクリーン縦サイズ
+PROGMEM const uint16_t MAX_CH_X    = CH_W - 1;           // フォント最大横位置
+PROGMEM const uint16_t MAX_CH_Y    = CH_H - 1;           // フォント最大縦位置
+PROGMEM const uint16_t MAX_SC_X    = SC_W - 1;           // キャラクタスクリーン最大横位置
+PROGMEM const uint16_t MAX_SC_Y    = SC_H - 1;           // キャラクタスクリーン最大縦位置
+PROGMEM const uint16_t MAX_SP_X    = SP_W - 1;           // ピクセルスクリーン最大横位置
+PROGMEM const uint16_t MAX_SP_Y    = SP_H - 1;           // ピクセルスクリーン最大縦位置
+PROGMEM const uint16_t MARGIN_LEFT = (RSP_W - SP_W) / 2; // 左マージン
+PROGMEM const uint16_t MARGIN_TOP  = (RSP_H - SP_H) / 2; // 上マージン
 
-PROGMEM enum class em {NONE,  ES, CSI, CSI2, LSC, G0S, G1S, EGR};
+// 色
+PROGMEM const uint8_t clBlack   = 0;
+PROGMEM const uint8_t clRed     = 1;
+PROGMEM const uint8_t clGreen   = 2;
+PROGMEM const uint8_t clYellow  = 3;
+PROGMEM const uint8_t clBlue    = 4;
+PROGMEM const uint8_t clMagenta = 5;
+PROGMEM const uint8_t clCyan    = 6;
+PROGMEM const uint8_t clWhite   = 7;
+
+// デフォルト
 PROGMEM uint8_t defaultMode = 0b00001000;
 PROGMEM uint16_t defaultModeEx = 0b0000000001000000;
 PROGMEM const union ATTR defaultAttr = {0b00000000};
 PROGMEM const union COLOR defaultColor = {(BACK_COLOR << 4) | FORE_COLOR};
 
+// スクロール有効行
+uint16_t M_TOP    = 0;        // スクロール行上限
+uint16_t M_BOTTOM = MAX_SC_Y; // スクロール行下限
+
+// フォント先頭アドレス
+uint8_t* fontTop;
+
+// バッファ
+uint8_t screen[SCSIZE];       // スクリーンバッファ
+uint8_t attrib[SCSIZE];       // 文字アトリビュートバッファ
+uint8_t colors[SCSIZE];       // カラーアトリビュートバッファ
+uint8_t tabs[SC_W];           // タブ位置バッファ
+
 // 状態
+PROGMEM enum class em {NONE,  ES, CSI, CSI2, LSC, G0S, G1S, EGR};
 em escMode = em::NONE;         // エスケープシーケンスモード
 bool isShowCursor = false;     // カーソル表示中か？
 bool canShowCursor = false;    // カーソル表示可能か？
@@ -238,6 +250,10 @@ union MODE_EX mode_ex = {defaultModeEx};
   | [ENTER]    | WIO_5S_PRESS | [CR]      |
   +------------+--------------+-----------+
 ********************************************/
+
+// キー
+int key;
+void printKey();
 
 // スイッチ情報
 enum WIO_SW {SW_UP, SW_DOWN, SW_RIGHT, SW_LEFT, SW_PRESS};
@@ -279,8 +295,14 @@ bool hideCursor = false;
 #define QUEUE_LENGTH 100
 QueueHandle_t xQueue;
 
-// 交換
-#define swap(a, b) { uint16_t t = a; a = b; b = t; }
+// LCD 制御用
+static LGFX lcd;
+
+// USB 制御用
+USBHost usb;
+
+// キーボード制御用
+KeyboardController keyboard(usb);
 
 // -----------------------------------------------------------------------------
 
@@ -830,11 +852,7 @@ void printChar(char c) {
           break;
         case 'h':
           // カーソル表示/非表示
-          hideCursor = (nVals != 0) && (vals[0] == 1);
-          if (hideCursor)
-            sc_updateChar(p_XP, p_YP);
-          p_XP = XP;
-          p_YP = YP;
+          textCursorEnableMode((nVals == 0) || (vals[0] == 0));
           break;
         case 'K':
           // setBaseColor
@@ -1226,7 +1244,7 @@ void lineMode(bool m) {
   mode.Flgs.CrLf = m;
 }
 
-// DECSCNM (Screen Mode): // 画面反転モード
+// DECSCNM (Screen Mode): 画面反転モード
 void screenMode(bool m) {
   mode_ex.Flgs.ScreenReverse = m;
   refreshScreen();
@@ -1235,6 +1253,16 @@ void screenMode(bool m) {
 // DECAWM (Auto Wrap Mode): 自動折り返しモード
 void autoWrapMode(bool m) {
   mode_ex.Flgs.WrapLine = m;
+}
+
+// DECTCEM (Text Cursor Enable Mode): テキストカーソル有効モード
+void textCursorEnableMode(bool m) {
+  hideCursor = !m;
+  if (hideCursor) {
+    sc_updateChar(p_XP, p_YP);
+    p_XP = XP;
+    p_YP = YP;
+  }
 }
 
 // SM (Set Mode): モードのセット
@@ -1258,7 +1286,7 @@ void decSetMode(int16_t *vals, int16_t nVals) {
   for (int16_t i = 0; i < nVals; i++) {
     switch (vals[i]) {
       case 5:
-        // DECSCNM (Screen Mode): // 画面反転モード
+        // DECSCNM (Screen Mode): 画面反転モード
         screenMode(true);
         break;
       case 7:
@@ -1267,7 +1295,7 @@ void decSetMode(int16_t *vals, int16_t nVals) {
         break;
       case 25:
         // DECTCEM (Text Cursor Enable Mode): テキストカーソル有効モード
-        hideCursor = false;
+        textCursorEnableMode(true);
         break;
       default:
         DebugSerial.print(F("Unimplement: decSetMode "));
@@ -1298,7 +1326,7 @@ void decResetMode(int16_t *vals, int16_t nVals) {
   for (int16_t i = 0; i < nVals; i++) {
     switch (vals[i]) {
       case 5:
-        // DECSCNM (Screen Mode): // 画面反転モード
+        // DECSCNM (Screen Mode): 画面反転モード
         screenMode(false);
         break;
       case 7:
@@ -1307,10 +1335,7 @@ void decResetMode(int16_t *vals, int16_t nVals) {
         break;
       case 25:
         // DECTCEM (Text Cursor Enable Mode): テキストカーソル有効モード
-        hideCursor = true;
-        sc_updateChar(p_XP, p_YP);
-        p_XP = XP;
-        p_YP = YP;
+        textCursorEnableMode(false);
         break;
       default:
         DebugSerial.print(F("Unimplement: decResetMode "));
