@@ -2,9 +2,6 @@
 #define ABSTRACT_H
 #include <Wire.h>
 
-// スピーカー制御用ピン
-#define SPK_PIN  WIO_BUZZER
-
 #ifdef PROFILE
 #define printf(a, b) Serial.println(b)
 #endif
@@ -59,11 +56,11 @@ typedef struct {
 	uint8 al[16];
 } CPM_DIRENTRY;
 
-#if defined board_teensy41
+//#if defined board_teensy41
   static DirFat_t fileDirEntry;
-#else
-  static dir_t    fileDirEntry;
-#endif
+//#else
+//  static dir_t    fileDirEntry;
+//#endif
 
 File _sys_fopen_w(uint8* filename) {
 	return(SD.open((char*)filename, O_CREAT | O_WRITE));
@@ -489,7 +486,7 @@ uint8 _sys_makedisk(uint8 drive) {
 /*===============================================================================*/
 extern void printChar(char c);
 extern void printString(const char *str);
-extern void playTone(int pin, int tone, int duration);
+extern void playBeep(const uint16_t Number, const uint8_t ToneNo, const uint16_t Duration);
 extern QueueHandle_t xQueue;
 
 extern void loop();
@@ -520,7 +517,7 @@ void _putch(uint8 ch) {
 //  printChar(ch);
   switch (ch) {
     case 0x07:
-      playTone(SPK_PIN, 4000, 583);
+      playBeep(1, 12, 583);
       break;
     default:
       printChar(ch);
