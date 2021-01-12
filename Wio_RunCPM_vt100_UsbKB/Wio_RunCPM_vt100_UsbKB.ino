@@ -84,6 +84,9 @@ int lst_open = FALSE;
 // エスケープシーケンス
 #define USE_EGR               // EGR 拡張
 
+// スピーカー制御用ピン
+#define SPK_PIN       WIO_BUZZER
+
 //-----------------------------------------------------------------------
 
 // 交換
@@ -846,6 +849,18 @@ void printChar(char c) {
             lcd.drawBezier(vals[0], vals[1], vals[2], vals[3], vals[4], vals[5], vals[6], vals[7]);
           else
             lcd.drawBezier(vals[0], vals[1], vals[2], vals[3], vals[4], vals[5]);
+          break;
+        case 'b':
+          // playBeep
+          switch (nVals) {
+            case 2:
+              vals[2] = 583;
+            case 1:
+              vals[1] = 12;
+            case 0:
+              vals[0] = 1;
+          }
+          playBeep(vals[0], vals[1], vals[2]);
           break;
         case 'C':
           // drawCircle
@@ -1670,13 +1685,26 @@ void handle_timer() {
 }
 
 // Play Tone
-void playTone(int pin, int tone, int duration) {
-  for (long i = 0; i < duration * 1000L; i += tone * 2) {
-    digitalWrite(pin, HIGH);
-    delayMicroseconds(tone);
-    digitalWrite(pin, LOW);
-    delayMicroseconds(tone);
+void playTone(int Pin, int Tone, int Duration) {
+  for (long i = 0; i < Duration * 1000L; i += Tone * 2) {
+    digitalWrite(Pin, HIGH);
+    delayMicroseconds(Tone);
+    digitalWrite(Pin, LOW);
+    delayMicroseconds(Tone);
   }
+}
+
+// Play Beep
+void playBeep(const uint16_t Number, const uint8_t ToneNo, const uint16_t Duration) {
+  double freq = ((ToneNo == 12) && (Duration == 583)) ? 4000 : 256000.0 / (90 + 4 * ToneNo);
+  if (freq <  230.6) freq =  230.6;
+  if (freq > 2844.4) freq = 2844.4;
+  double timeHigh = 1000000L / (2 * freq);
+  for (uint16_t i = 0; i < Number; i++) {
+    playTone(SPK_PIN, timeHigh, Duration);
+    if (i < (Number - 1)) delay(300);
+  }
+  delay(20);
 }
 
 // セットアップ
