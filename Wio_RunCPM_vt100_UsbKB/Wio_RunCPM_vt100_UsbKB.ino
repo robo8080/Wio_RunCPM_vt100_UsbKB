@@ -1,20 +1,35 @@
+/************************************************************/
+/*                                                          */
+/*        RunCPM + VT100 Emulator for Wio Termainal         */
+/*                                                          */
+/*   Wio_RunCPM_vt100_UsbKB                                 */
+/*     https://github.com/robo8080/Wio_RunCPM_vt100_UsbKB   */
+/*                                                          */
+/*   RunCPM - Z80 CP/M 2.2 emulator                         */
+/*     https://github.com/MockbaTheBorg/RunCPM              */
+/*   VT100 Terminal Emulator for Wio Terminal               */
+/*     https://github.com/ht-deko/vt100_wt                  */
+/*                                                          */
+/************************************************************/
+
 //------VT100_WT---------------------------------------------------------
+
 #include <Arduino.h>
 #include <Seeed_Arduino_FreeRTOS.h>
+// https://github.com/Seeed-Studio/Seeed_Arduino_FreeRTOS
 #include <SPI.h>
 #include <LovyanGFX.hpp>
+// https://github.com/lovyan03/LovyanGFX
 #include <SAMD51_InterruptTimer.h>
+// https://github.com/Dennis-van-Gils/SAMD51_InterruptTimer
 #include <Reset.h>
 #include <KeyboardController.h>
 
-//#include <font6x8tt.h>            // 6x8 ドットフォント (TTBASIC 付属)
-//#include "font6x8e200.h"          // 6x8 ドットフォント (SHARP PC-E200 風)
-//#include "font6x8e500.h"          // 6x8 ドットフォント (SHARP PC-E500 風)
-#include "font6x8sc1602b.h"       // 6x8 ドットフォント (SUNLIKE SC1602B 風)
-
 //------RunCPM-----------------------------------------------------------
+
 #include "globals.h"
 #include <SdFat.h>
+// https://github.com/greiman/SdFat
 #include "hardware/wioterm.h"
 #include "abstraction_arduino.h"
 
@@ -42,7 +57,36 @@ int lst_open = FALSE;
 #ifdef CCP_INTERNAL
 #include "ccp.h"
 #endif
-//-----------------------------------------------------------------
+
+//------Settings---------------------------------------------------------
+
+// フォント
+//#include <font6x8tt.h>      // 6x8 ドットフォント (TTBASIC 付属)
+//#include "font6x8e200.h"    // 6x8 ドットフォント (SHARP PC-E200 風)
+//#include "font6x8e500.h"    // 6x8 ドットフォント (SHARP PC-E500 風)
+#include "font6x8sc1602b.h" // 6x8 ドットフォント (SUNLIKE SC1602B 風)
+
+// フォント管理用
+#define CH_W        6       // フォント横サイズ
+#define CH_H        8       // フォント縦サイズ
+
+// スクリーン管理用
+#define RSP_W       320     // 実ピクセルスクリーン横サイズ
+#define RSP_H       240     // 実ピクセルスクリーン縦サイズ
+#define SC_W        52      // キャラクタスクリーン横サイズ (<= 53)
+#define SC_H        29      // キャラクタスクリーン縦サイズ (<= 30)
+
+// 色
+#define FORE_COLOR  clWhite // 初期前景色
+#define BACK_COLOR  clBlue  // 初期背景色
+
+// エスケープシーケンス
+#define USE_EGR             // EGR 拡張
+
+//-----------------------------------------------------------------------
+
+// 交換
+#define swap(a, b) { uint16_t t = a; a = b; b = t; }
 
 // シリアル
 #define DebugSerial Serial1
@@ -54,49 +98,6 @@ int lst_open = FALSE;
   #define LED_03  D4
   #define LED_04  D5
 */
-
-// LCD 制御用
-static LGFX lcd;
-
-// USB 制御用
-USBHost usb;
-
-// キーボード制御用
-KeyboardController keyboard(usb);
-
-int key;
-void printKey();
-
-// フォント管理用
-uint8_t* fontTop;
-#define CH_W    6     // フォント横サイズ
-#define CH_H    8     // フォント縦サイズ
-
-// スクリーン管理用
-#define RSP_W   320   // 実ピクセルスクリーン横サイズ
-#define RSP_H   240   // 実ピクセルスクリーン縦サイズ
-#define SC_W    52    // キャラクタスクリーン横サイズ (<= 53)
-#define SC_H    29    // キャラクタスクリーン縦サイズ (<= 30)
-
-// EGR 拡張を行うか？
-#define USE_EGR
-
-// 座標やサイズのプレ計算
-PROGMEM const uint16_t SCSIZE      = SC_W * SC_H;        // キャラクタスクリーンサイズ
-PROGMEM const uint16_t SP_W        = SC_W * CH_W;        // ピクセルスクリーン横サイズ
-PROGMEM const uint16_t SP_H        = SC_H * CH_H;        // ピクセルスクリーン縦サイズ
-PROGMEM const uint16_t MAX_CH_X    = CH_W - 1;           // フォント最大横位置
-PROGMEM const uint16_t MAX_CH_Y    = CH_H - 1;           // フォント最大縦位置
-PROGMEM const uint16_t MAX_SC_X    = SC_W - 1;           // キャラクタスクリーン最大横位置
-PROGMEM const uint16_t MAX_SC_Y    = SC_H - 1;           // キャラクタスクリーン最大縦位置
-PROGMEM const uint16_t MAX_SP_X    = SP_W - 1;           // ピクセルスクリーン最大横位置
-PROGMEM const uint16_t MAX_SP_Y    = SP_H - 1;           // ピクセルスクリーン最大縦位置
-PROGMEM const uint16_t MARGIN_LEFT = (RSP_W - SP_W) / 2; // 左マージン
-PROGMEM const uint16_t MARGIN_TOP  = (RSP_H - SP_H) / 2; // 上マージン
-
-// スクロール有効行
-uint16_t M_TOP    = 0;                  // スクロール行上限
-uint16_t M_BOTTOM = MAX_SC_Y;           // スクロール行下限
 
 // 文字アトリビュート用
 struct TATTR {
@@ -136,15 +137,6 @@ PROGMEM const uint16_t aColors[] = {
   0x07ff, // cyan
   0xe73c  // white
 };
-
-PROGMEM const uint8_t clBlack   = 0;
-PROGMEM const uint8_t clRed     = 1;
-PROGMEM const uint8_t clGreen   = 2;
-PROGMEM const uint8_t clYellow  = 3;
-PROGMEM const uint8_t clBlue    = 4;
-PROGMEM const uint8_t clMagenta = 5;
-PROGMEM const uint8_t clCyan    = 6;
-PROGMEM const uint8_t clWhite   = 7;
 
 struct TCOLOR {
   uint8_t Foreground : 4;
@@ -189,19 +181,50 @@ union MODE_EX {
   struct TMODE_EX Flgs;
 };
 
-// バッファ
-uint8_t screen[SCSIZE];      // スクリーンバッファ
-uint8_t attrib[SCSIZE];      // 文字アトリビュートバッファ
-uint8_t colors[SCSIZE];      // カラーアトリビュートバッファ
-uint8_t tabs[SC_W];          // タブ位置バッファ
+// 座標やサイズのプレ計算
+PROGMEM const uint16_t SCSIZE      = SC_W * SC_H;        // キャラクタスクリーンサイズ
+PROGMEM const uint16_t SP_W        = SC_W * CH_W;        // ピクセルスクリーン横サイズ
+PROGMEM const uint16_t SP_H        = SC_H * CH_H;        // ピクセルスクリーン縦サイズ
+PROGMEM const uint16_t MAX_CH_X    = CH_W - 1;           // フォント最大横位置
+PROGMEM const uint16_t MAX_CH_Y    = CH_H - 1;           // フォント最大縦位置
+PROGMEM const uint16_t MAX_SC_X    = SC_W - 1;           // キャラクタスクリーン最大横位置
+PROGMEM const uint16_t MAX_SC_Y    = SC_H - 1;           // キャラクタスクリーン最大縦位置
+PROGMEM const uint16_t MAX_SP_X    = SP_W - 1;           // ピクセルスクリーン最大横位置
+PROGMEM const uint16_t MAX_SP_Y    = SP_H - 1;           // ピクセルスクリーン最大縦位置
+PROGMEM const uint16_t MARGIN_LEFT = (RSP_W - SP_W) / 2; // 左マージン
+PROGMEM const uint16_t MARGIN_TOP  = (RSP_H - SP_H) / 2; // 上マージン
 
-PROGMEM enum class em {NONE,  ES, CSI, CSI2, LSC, G0S, G1S, EGR};
-PROGMEM uint8_t defaultMode = 0b00001000;
-PROGMEM uint16_t defaultModeEx = 0b0000000001000000;
+// 色
+PROGMEM const uint8_t clBlack   = 0;
+PROGMEM const uint8_t clRed     = 1;
+PROGMEM const uint8_t clGreen   = 2;
+PROGMEM const uint8_t clYellow  = 3;
+PROGMEM const uint8_t clBlue    = 4;
+PROGMEM const uint8_t clMagenta = 5;
+PROGMEM const uint8_t clCyan    = 6;
+PROGMEM const uint8_t clWhite   = 7;
+
+// デフォルト
+PROGMEM const uint8_t defaultMode = 0b00001000;
+PROGMEM const uint16_t defaultModeEx = 0b0000000001000000;
 PROGMEM const union ATTR defaultAttr = {0b00000000};
-PROGMEM const union COLOR defaultColor = {(clBlue << 4) | clWhite}; // back, fore
+PROGMEM const union COLOR defaultColor = {(BACK_COLOR << 4) | FORE_COLOR};
+
+// スクロール有効行
+uint16_t M_TOP    = 0;        // スクロール行上限
+uint16_t M_BOTTOM = MAX_SC_Y; // スクロール行下限
+
+// フォント先頭アドレス
+uint8_t* fontTop;
+
+// バッファ
+uint8_t screen[SCSIZE];       // スクリーンバッファ
+uint8_t attrib[SCSIZE];       // 文字アトリビュートバッファ
+uint8_t colors[SCSIZE];       // カラーアトリビュートバッファ
+uint8_t tabs[SC_W];           // タブ位置バッファ
 
 // 状態
+PROGMEM enum class em {NONE,  ES, CSI, CSI2, LSC, G0S, G1S, EGR};
 em escMode = em::NONE;         // エスケープシーケンスモード
 bool isShowCursor = false;     // カーソル表示中か？
 bool canShowCursor = false;    // カーソル表示可能か？
@@ -214,31 +237,43 @@ union MODE_EX mode_ex = {defaultModeEx};
 
 /********************************************
   キーボードと Wio Terminal のボタンとスイッチの対応
-  +------------+--------------+-----------+
-  | キーボード | Wio Terminal | ESC SEQ   |
-  +------------+--------------+-----------+
-  | [F3]       | WIO_KEY_C    | [ESC] [ P |
-  | [F4]       | WIO_KEY_B    | [ESC] [ Q |
-  | [F5]       | WIO_KEY_A    | [ESC] [ R |
-  | [UP]       | WIO_5S_UP    | [ESC] [ A |
-  | [DOWN]     | WIO_5S_DOWN  | [ESC] [ B |
-  | [RIGHT]    | WIO_5S_RIGHT | [ESC] [ C |
-  | [LEFT]     | WIO_5S_LEFT  | [ESC] [ D |
-  | [ENTER]    | WIO_5S_PRESS | [CR]      |
-  +------------+--------------+-----------+
+  +-------------+--------------+-----------+
+  | キーボード  | Wio Terminal |  ESC SEQ  |
+  +-------------+--------------+-----------+
+  | [F1]        | WIO_KEY_C    | [ESC] O P |
+  | [F2]        | WIO_KEY_B    | [ESC] O Q |
+  | [F3]        | WIO_KEY_A    | [ESC] O R |
+  | [UP]        | WIO_5S_UP    | [ESC] O A |
+  | [DOWN]      | WIO_5S_DOWN  | [ESC] O B |
+  | [RIGHT]     | WIO_5S_RIGHT | [ESC] O C |
+  | [LEFT]      | WIO_5S_LEFT  | [ESC] O D |
+  | [ENTER]     | WIO_5S_PRESS | [CR]      |
+  +-------------+--------------+-----------+
 ********************************************/
+
+// コマンドの長さ
+PROGMEM const int CMD_LEN = 4;
+
+// キー
+int key;
+void printKey();
+void printSpecialKey(const char *str);
 
 // スイッチ情報
 enum WIO_SW {SW_UP, SW_DOWN, SW_RIGHT, SW_LEFT, SW_PRESS};
 PROGMEM const int SW_PORT[5] = {WIO_5S_UP, WIO_5S_DOWN, WIO_5S_RIGHT, WIO_5S_LEFT, WIO_5S_PRESS};
-PROGMEM const char SW_CMD[5][4] = {"\e[A", "\e[B", "\e[C", "\e[D", "\r"};
+PROGMEM const char SW_CMD[5][CMD_LEN] = {"\eOA", "\eOB", "\eOC", "\eOD", "\r"};
 bool prev_sw[5] = {false, false, false, false, false};
 
 // ボタン情報
 enum WIO_BTN {BT_A, BT_B, BT_C};
 PROGMEM const int BTN_PORT[3] = {WIO_KEY_A, WIO_KEY_B, WIO_KEY_C};
-PROGMEM const char BTN_CMD[3][4] = {"\e[R", "\e[Q", "\e[P"};
+PROGMEM const char BTN_CMD[3][CMD_LEN] = {"\eOR", "\eOQ", "\eOP"};
 bool prev_btn[3] = {false, false, false};
+
+// 特殊キー情報
+enum SP_KEY {KY_HOME, KY_INS, KY_DEL, KY_END, KY_PGUP, KY_PGDOWN};
+PROGMEM const char KEY_CMD[6][CMD_LEN] = {"\eO1", "\eO2", "\x7F", "\eO4", "\eO5", "\eO6"};
 
 // 前回位置情報
 int16_t p_XP = 0;
@@ -264,17 +299,32 @@ int16_t vals[10] = {0};
 bool needCursorUpdate = false;
 bool hideCursor = false;
 
-// 関数
+// キュー
+#define QUEUE_LENGTH 100
+QueueHandle_t xQueue;
+
+// LCD 制御用
+static LGFX lcd;
+
+// USB 制御用
+USBHost usb;
+
+// キーボード制御用
+KeyboardController keyboard(usb);
+
 // -----------------------------------------------------------------------------
 
+// イベント: キーを押した
 void keyPressed() {
   //printKey();
 }
 
+// イベント: キーを離した
 void keyReleased() {
   printKey();
 }
 
+// キー押下処理
 void printKey() {
   char c = keyboard.getKey();
   needCursorUpdate = c;
@@ -285,37 +335,44 @@ void printKey() {
     int key = keyboard.getOemKey();
     int mod = keyboard.getModifiers();
     switch (key) {
-      case 60: // F3 (Wio Button #3)
-        for (int l = 0; l < 3; l++)
-          xQueueSend(xQueue, &BTN_CMD[BT_C][l], 0);
+      case 58: // F1 (Wio Button #3)
+        printSpecialKey(BTN_CMD[BT_C]);
         break;
-      case 61: // F4 (Wio Button #2)
-        for (int l = 0; l < 3; l++)
-          xQueueSend(xQueue, &BTN_CMD[BT_B][l], 0);
+      case 59: // F2 (Wio Button #2)
+        printSpecialKey(BTN_CMD[BT_B]);
         break;
-      case 62: // F5 (Wio Button #1)
-        for (int l = 0; l < 3; l++)
-          xQueueSend(xQueue, &BTN_CMD[BT_A][l], 0);
+      case 60: // F3 (Wio Button #1)
+        printSpecialKey(BTN_CMD[BT_A]);
+        break;
+      case 73: // Insert
+        printSpecialKey(KEY_CMD[KY_INS]);
+        break;
+      case 74: // Home
+        printSpecialKey(KEY_CMD[KY_HOME]);
+        break;
+      case 75: // Page Up
+        printSpecialKey(KEY_CMD[KY_PGUP]);
         break;
       case 76: // DEL
-        c = char(127);
-        xQueueSend(xQueue, &c, 0);
+        printSpecialKey(KEY_CMD[KY_DEL]);
+        break;
+      case 77: // End
+        printSpecialKey(KEY_CMD[KY_END]);
+        break;
+      case 78: // Page Down
+        printSpecialKey(KEY_CMD[KY_PGDOWN]);
         break;
       case 79: // RIGHT (Wio Switch #3)
-        for (int l = 0; l < 3; l++)
-          xQueueSend(xQueue, &SW_CMD[SW_RIGHT][l], 0);
+        printSpecialKey(SW_CMD[SW_RIGHT]);
         break;
       case 80: // LEFT (Wio Switch #4)
-        for (int l = 0; l < 3; l++)
-          xQueueSend(xQueue, &SW_CMD[SW_LEFT ][l], 0);
+        printSpecialKey(SW_CMD[SW_LEFT]);
         break;
       case 81: // DOWN (Wio Switch #2)
-        for (int l = 0; l < 3; l++)
-          xQueueSend(xQueue, &SW_CMD[SW_DOWN ][l], 0);
+        printSpecialKey(SW_CMD[SW_DOWN]);
         break;
       case 82: // UP (Wio Switch #1)
-        for (int l = 0; l < 3; l++)
-          xQueueSend(xQueue, &SW_CMD[SW_UP   ][l], 0);
+        printSpecialKey(SW_CMD[SW_UP]);
         break;
       default:
         needCursorUpdate = false;
@@ -323,8 +380,10 @@ void printKey() {
   }
 }
 
-// 交換
-#define swap(a, b) { uint16_t t = a; a = b; b = t; }
+// 特殊キーの送信
+void printSpecialKey(const char *str) {
+   while (*str) xQueueSend(xQueue, (const char *)str++, 0);
+}
 
 // 指定位置の文字の更新表示
 void sc_updateChar(uint16_t x, uint16_t y) {
@@ -374,7 +433,7 @@ void dispCursor(bool forceupdate) {
   if (escMode != em::NONE)
     return;
   if (hideCursor)
-    return;    
+    return;
   if (!forceupdate)
     isShowCursor = !isShowCursor;
   if (isShowCursor)
@@ -757,17 +816,17 @@ void printChar(char c) {
   if (escMode == em::EGR) {
     if (isdigit(c) || c == '-') {
       // [パラメータ]
-      if (c != '-') 
+      if (c != '-')
         vals[nVals] = vals[nVals] * 10 + (c - '0');
       else
-        isNegative = true;     
+        isNegative = true;
       hasParam = true;
     } else if (c == ';') {
       // [セパレータ]
       if (isNegative) vals[nVals] = -vals[nVals];
       nVals++;
       hasParam = false;
-      isNegative = false;  
+      isNegative = false;
     } else {
       if (isNegative) vals[nVals] = -vals[nVals];
       if (hasParam) nVals++;
@@ -804,7 +863,7 @@ void printChar(char c) {
           lcd.fillEllipse(vals[0], vals[1], vals[2], vals[3]);
           break;
         case 'F':
-          // setColor 
+          // setColor
           lcd.setColor(lcd.color565(vals[0], vals[1], vals[2]));
           break;
         case 'H':
@@ -813,12 +872,10 @@ void printChar(char c) {
           break;
         case 'h':
           // カーソル表示/非表示
-          hideCursor = (nVals != 0) && (vals[0] == 1);
-          if (hideCursor)
-            sc_updateChar(p_XP, p_YP);
+          textCursorEnableMode((nVals == 0) || (vals[0] == 0));
           break;
         case 'K':
-          // setBaseColor 
+          // setBaseColor
           lcd.setBaseColor(lcd.color565(vals[0], vals[1], vals[2]));
           break;
         case 'L':
@@ -1080,7 +1137,7 @@ void eraseInDisplay(uint8_t m) {
     memset(&screen[idx], 0x00, n);
     memset(&attrib[idx], defaultAttr.value, n);
     memset(&colors[idx], defaultColor.value, n);
-    if (m == 2) 
+    if (m == 2)
       lcd.clear(aColors[defaultColor.Color.Background]);
     else {
       lcd.setAddrWindow(MARGIN_LEFT, sl * CH_H + MARGIN_TOP, SP_W, ((el + 1) * CH_H) - (sl * CH_H));
@@ -1207,7 +1264,7 @@ void lineMode(bool m) {
   mode.Flgs.CrLf = m;
 }
 
-// DECSCNM (Screen Mode): // 画面反転モード
+// DECSCNM (Screen Mode): 画面反転モード
 void screenMode(bool m) {
   mode_ex.Flgs.ScreenReverse = m;
   refreshScreen();
@@ -1216,6 +1273,16 @@ void screenMode(bool m) {
 // DECAWM (Auto Wrap Mode): 自動折り返しモード
 void autoWrapMode(bool m) {
   mode_ex.Flgs.WrapLine = m;
+}
+
+// DECTCEM (Text Cursor Enable Mode): テキストカーソル有効モード
+void textCursorEnableMode(bool m) {
+  hideCursor = !m;
+  if (hideCursor) {
+    sc_updateChar(p_XP, p_YP);
+    p_XP = XP;
+    p_YP = YP;
+  }
 }
 
 // SM (Set Mode): モードのセット
@@ -1239,7 +1306,7 @@ void decSetMode(int16_t *vals, int16_t nVals) {
   for (int16_t i = 0; i < nVals; i++) {
     switch (vals[i]) {
       case 5:
-        // DECSCNM (Screen Mode): // 画面反転モード
+        // DECSCNM (Screen Mode): 画面反転モード
         screenMode(true);
         break;
       case 7:
@@ -1248,7 +1315,7 @@ void decSetMode(int16_t *vals, int16_t nVals) {
         break;
       case 25:
         // DECTCEM (Text Cursor Enable Mode): テキストカーソル有効モード
-        hideCursor = false;
+        textCursorEnableMode(true);
         break;
       default:
         DebugSerial.print(F("Unimplement: decSetMode "));
@@ -1279,7 +1346,7 @@ void decResetMode(int16_t *vals, int16_t nVals) {
   for (int16_t i = 0; i < nVals; i++) {
     switch (vals[i]) {
       case 5:
-        // DECSCNM (Screen Mode): // 画面反転モード
+        // DECSCNM (Screen Mode): 画面反転モード
         screenMode(false);
         break;
       case 7:
@@ -1288,8 +1355,7 @@ void decResetMode(int16_t *vals, int16_t nVals) {
         break;
       case 25:
         // DECTCEM (Text Cursor Enable Mode): テキストカーソル有効モード
-        hideCursor = true;
-        sc_updateChar(p_XP, p_YP);
+        textCursorEnableMode(false);
         break;
       default:
         DebugSerial.print(F("Unimplement: decResetMode "));
@@ -1597,12 +1663,6 @@ void unknownSequence(em m, char c) {
   DebugSerial.print(c);
 }
 
-// -----------------------------------------------------------------------------
-// キューの大きさ
-#define QUEUE_LENGTH 100
-// 通常のキュー
-QueueHandle_t xQueue;
-
 // タイマーハンドラ
 void handle_timer() {
   canShowCursor = true;
@@ -1667,7 +1727,6 @@ void setup() {
   digitalWrite(PIN_USB_HOST_ENABLE, LOW);
   digitalWrite(OUTPUT_CTR_5V, HIGH);
 
-  //---------RunCPM-----------------------------------------------------
 #ifdef DEBUGLOG
   _sys_deletefile((uint8 *)LogName);
 #endif
@@ -1719,7 +1778,6 @@ void setup() {
   } else {
     _puts("Unable to initialize SD card.\r\nCPU halted.\r\n");
   }
-
 }
 
 // ループ
@@ -1732,8 +1790,7 @@ void loop() {
       prev_sw[i] = true;
     } else {
       if (prev_sw[i]) {
-        for (int l = 0; l < 3; l++)
-          xQueueSend(xQueue, &SW_CMD[i][l], 0);
+        printSpecialKey(SW_CMD[i]);
         needCursorUpdate = true;
       }
       prev_sw[i] = false;
@@ -1746,8 +1803,7 @@ void loop() {
       prev_btn[i] = true;
     } else {
       if (prev_btn[i]) {
-        for (int l = 0; l < 3; l++)
-          xQueueSend(xQueue, &BTN_CMD[i][l], 0);
+        printSpecialKey(BTN_CMD[i]);
         needCursorUpdate = true;
       }
       prev_btn[i] = false;
