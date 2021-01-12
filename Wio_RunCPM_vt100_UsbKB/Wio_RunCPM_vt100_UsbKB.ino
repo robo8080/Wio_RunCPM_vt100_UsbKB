@@ -67,21 +67,22 @@ int lst_open = FALSE;
 #include "font6x8sc1602b.h" // 6x8 ドットフォント (SUNLIKE SC1602B 風)
 
 // フォント管理用
-#define CH_W        6       // フォント横サイズ
-#define CH_H        8       // フォント縦サイズ
+#define CH_W          6       // フォント横サイズ
+#define CH_H          8       // フォント縦サイズ
 
 // スクリーン管理用
-#define RSP_W       320     // 実ピクセルスクリーン横サイズ
-#define RSP_H       240     // 実ピクセルスクリーン縦サイズ
-#define SC_W        52      // キャラクタスクリーン横サイズ (<= 53)
-#define SC_H        29      // キャラクタスクリーン縦サイズ (<= 30)
+#define RSP_W         320     // 実ピクセルスクリーン横サイズ
+#define RSP_H         240     // 実ピクセルスクリーン縦サイズ
+#define SC_W          52      // キャラクタスクリーン横サイズ (<= 53)
+#define SC_H          29      // キャラクタスクリーン縦サイズ (<= 30)
 
 // 色
-#define FORE_COLOR  clWhite // 初期前景色
-#define BACK_COLOR  clBlue  // 初期背景色
+#define FORE_COLOR    clWhite // 初期前景色
+#define BACK_COLOR    clBlue  // 初期背景色
+#define CURSOR_COLOR  clWhite // カーソル色
 
 // エスケープシーケンス
-#define USE_EGR             // EGR 拡張
+#define USE_EGR               // EGR 拡張
 
 //-----------------------------------------------------------------------
 
@@ -382,7 +383,7 @@ void printKey() {
 
 // 特殊キーの送信
 void printSpecialKey(const char *str) {
-   while (*str) xQueueSend(xQueue, (const char *)str++, 0);
+  while (*str) xQueueSend(xQueue, (const char *)str++, 0);
 }
 
 // 指定位置の文字の更新表示
@@ -424,7 +425,7 @@ void drawCursor(uint16_t x, uint16_t y) {
 
   lcd.setAddrWindow(MARGIN_LEFT + x * CH_W, MARGIN_TOP + y * CH_H, CH_W, CH_H);
   for (uint16_t i = 0; i < buflen; i++)
-    buf[i] = 0xFFFF; // ILI9341_WHITE
+    buf[i] = aColors[CURSOR_COLOR];
   lcd.pushPixels(buf, buflen, true);
 }
 
