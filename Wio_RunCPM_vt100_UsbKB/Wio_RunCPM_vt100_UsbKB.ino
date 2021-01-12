@@ -205,8 +205,8 @@ PROGMEM const uint8_t clCyan    = 6;
 PROGMEM const uint8_t clWhite   = 7;
 
 // デフォルト
-PROGMEM uint8_t defaultMode = 0b00001000;
-PROGMEM uint16_t defaultModeEx = 0b0000000001000000;
+PROGMEM const uint8_t defaultMode = 0b00001000;
+PROGMEM const uint16_t defaultModeEx = 0b0000000001000000;
 PROGMEM const union ATTR defaultAttr = {0b00000000};
 PROGMEM const union COLOR defaultColor = {(BACK_COLOR << 4) | FORE_COLOR};
 
@@ -251,25 +251,29 @@ union MODE_EX mode_ex = {defaultModeEx};
   +-------------+--------------+-----------+
 ********************************************/
 
+// コマンドの長さ
+PROGMEM const int CMD_LEN = 4;
+
 // キー
 int key;
 void printKey();
+void printSpecialKey(const char *str);
 
 // スイッチ情報
 enum WIO_SW {SW_UP, SW_DOWN, SW_RIGHT, SW_LEFT, SW_PRESS};
 PROGMEM const int SW_PORT[5] = {WIO_5S_UP, WIO_5S_DOWN, WIO_5S_RIGHT, WIO_5S_LEFT, WIO_5S_PRESS};
-PROGMEM const char SW_CMD[5][4] = {"\eOA", "\eOB", "\eOC", "\eOD", "\r"};
+PROGMEM const char SW_CMD[5][CMD_LEN] = {"\eOA", "\eOB", "\eOC", "\eOD", "\r"};
 bool prev_sw[5] = {false, false, false, false, false};
 
 // ボタン情報
 enum WIO_BTN {BT_A, BT_B, BT_C};
 PROGMEM const int BTN_PORT[3] = {WIO_KEY_A, WIO_KEY_B, WIO_KEY_C};
-PROGMEM const char BTN_CMD[3][4] = {"\eOR", "\eOQ", "\eOP"};
+PROGMEM const char BTN_CMD[3][CMD_LEN] = {"\eOR", "\eOQ", "\eOP"};
 bool prev_btn[3] = {false, false, false};
 
 // 特殊キー情報
 enum SP_KEY {KY_HOME, KY_INS, KY_DEL, KY_END, KY_PGUP, KY_PGDOWN};
-PROGMEM const char KEY_CMD[6][4] = {"\eO1", "\eO2", "\eO3", "\eO4", "\eO5", "\eO6"};
+PROGMEM const char KEY_CMD[6][CMD_LEN] = {"\eO1", "\eO2", "\x7F", "\eO4", "\eO5", "\eO6"};
 
 // 前回位置情報
 int16_t p_XP = 0;
@@ -332,61 +336,53 @@ void printKey() {
     int mod = keyboard.getModifiers();
     switch (key) {
       case 58: // F1 (Wio Button #3)
-        for (int l = 0; l < 3; l++)
-          xQueueSend(xQueue, &BTN_CMD[BT_C][l], 0);
+        printSpecialKey(BTN_CMD[BT_C]);
         break;
       case 59: // F2 (Wio Button #2)
-        for (int l = 0; l < 3; l++)
-          xQueueSend(xQueue, &BTN_CMD[BT_B][l], 0);
+        printSpecialKey(BTN_CMD[BT_B]);
         break;
       case 60: // F3 (Wio Button #1)
-        for (int l = 0; l < 3; l++)
-          xQueueSend(xQueue, &BTN_CMD[BT_A][l], 0);
+        printSpecialKey(BTN_CMD[BT_A]);
         break;
       case 73: // Insert
-        for (int l = 0; l < 3; l++)
-          xQueueSend(xQueue, &KEY_CMD[KY_INS][l], 0);
+        printSpecialKey(KEY_CMD[KY_INS]);
         break;
       case 74: // Home
-        for (int l = 0; l < 3; l++)
-          xQueueSend(xQueue, &KEY_CMD[KY_HOME][l], 0);
+        printSpecialKey(KEY_CMD[KY_HOME]);
         break;
       case 75: // Page Up
-        for (int l = 0; l < 3; l++)
-          xQueueSend(xQueue, &KEY_CMD[KY_PGUP][l], 0);
+        printSpecialKey(KEY_CMD[KY_PGUP]);
         break;
       case 76: // DEL
-        c = char(127);
-        xQueueSend(xQueue, &c, 0);
+        printSpecialKey(KEY_CMD[KY_DEL]);
         break;
       case 77: // End
-        for (int l = 0; l < 3; l++)
-          xQueueSend(xQueue, &KEY_CMD[KY_END][l], 0);
+        printSpecialKey(KEY_CMD[KY_END]);
         break;
       case 78: // Page Down
-        for (int l = 0; l < 3; l++)
-          xQueueSend(xQueue, &KEY_CMD[KY_PGDOWN][l], 0);
+        printSpecialKey(KEY_CMD[KY_PGDOWN]);
         break;
       case 79: // RIGHT (Wio Switch #3)
-        for (int l = 0; l < 3; l++)
-          xQueueSend(xQueue, &SW_CMD[SW_RIGHT][l], 0);
+        printSpecialKey(SW_CMD[SW_RIGHT]);
         break;
       case 80: // LEFT (Wio Switch #4)
-        for (int l = 0; l < 3; l++)
-          xQueueSend(xQueue, &SW_CMD[SW_LEFT ][l], 0);
+        printSpecialKey(SW_CMD[SW_LEFT]);
         break;
       case 81: // DOWN (Wio Switch #2)
-        for (int l = 0; l < 3; l++)
-          xQueueSend(xQueue, &SW_CMD[SW_DOWN ][l], 0);
+        printSpecialKey(SW_CMD[SW_DOWN]);
         break;
       case 82: // UP (Wio Switch #1)
-        for (int l = 0; l < 3; l++)
-          xQueueSend(xQueue, &SW_CMD[SW_UP   ][l], 0);
+        printSpecialKey(SW_CMD[SW_UP]);
         break;
       default:
         needCursorUpdate = false;
     }
   }
+}
+
+// 特殊キーの送信
+void printSpecialKey(const char *str) {
+   while (*str) xQueueSend(xQueue, (const char *)str++, 0);
 }
 
 // 指定位置の文字の更新表示
@@ -1794,8 +1790,7 @@ void loop() {
       prev_sw[i] = true;
     } else {
       if (prev_sw[i]) {
-        for (int l = 0; l < 3; l++)
-          xQueueSend(xQueue, &SW_CMD[i][l], 0);
+        printSpecialKey(SW_CMD[i]);
         needCursorUpdate = true;
       }
       prev_sw[i] = false;
@@ -1808,8 +1803,7 @@ void loop() {
       prev_btn[i] = true;
     } else {
       if (prev_btn[i]) {
-        for (int l = 0; l < 3; l++)
-          xQueueSend(xQueue, &BTN_CMD[i][l], 0);
+        printSpecialKey(BTN_CMD[i]);
         needCursorUpdate = true;
       }
       prev_btn[i] = false;
