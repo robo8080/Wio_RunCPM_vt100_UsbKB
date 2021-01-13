@@ -67,21 +67,25 @@ int lst_open = FALSE;
 #include "font6x8sc1602b.h" // 6x8 ドットフォント (SUNLIKE SC1602B 風)
 
 // フォント管理用
-#define CH_W        6       // フォント横サイズ
-#define CH_H        8       // フォント縦サイズ
+#define CH_W          6       // フォント横サイズ
+#define CH_H          8       // フォント縦サイズ
 
 // スクリーン管理用
-#define RSP_W       320     // 実ピクセルスクリーン横サイズ
-#define RSP_H       240     // 実ピクセルスクリーン縦サイズ
-#define SC_W        52      // キャラクタスクリーン横サイズ (<= 53)
-#define SC_H        29      // キャラクタスクリーン縦サイズ (<= 30)
+#define RSP_W         320     // 実ピクセルスクリーン横サイズ
+#define RSP_H         240     // 実ピクセルスクリーン縦サイズ
+#define SC_W          52      // キャラクタスクリーン横サイズ (<= 53)
+#define SC_H          29      // キャラクタスクリーン縦サイズ (<= 30)
 
 // 色
-#define FORE_COLOR  clWhite // 初期前景色
-#define BACK_COLOR  clBlue  // 初期背景色
+#define FORE_COLOR    clWhite // 初期前景色
+#define BACK_COLOR    clBlue  // 初期背景色
+#define CURSOR_COLOR  clWhite // カーソル色
 
 // エスケープシーケンス
-#define USE_EGR             // EGR 拡張
+#define USE_EGR               // EGR 拡張
+
+// スピーカー制御用ピン
+#define SPK_PIN       WIO_BUZZER
 
 //-----------------------------------------------------------------------
 
@@ -382,7 +386,7 @@ void printKey() {
 
 // 特殊キーの送信
 void printSpecialKey(const char *str) {
-   while (*str) xQueueSend(xQueue, (const char *)str++, 0);
+  while (*str) xQueueSend(xQueue, (const char *)str++, 0);
 }
 
 // 指定位置の文字の更新表示
@@ -424,7 +428,7 @@ void drawCursor(uint16_t x, uint16_t y) {
 
   lcd.setAddrWindow(MARGIN_LEFT + x * CH_W, MARGIN_TOP + y * CH_H, CH_W, CH_H);
   for (uint16_t i = 0; i < buflen; i++)
-    buf[i] = 0xFFFF; // ILI9341_WHITE
+    buf[i] = aColors[CURSOR_COLOR];
   lcd.pushPixels(buf, buflen, true);
 }
 
@@ -845,6 +849,18 @@ void printChar(char c) {
             lcd.drawBezier(vals[0], vals[1], vals[2], vals[3], vals[4], vals[5], vals[6], vals[7]);
           else
             lcd.drawBezier(vals[0], vals[1], vals[2], vals[3], vals[4], vals[5]);
+          break;
+        case 'b':
+          // playBeep
+          switch (nVals) {
+            case 2:
+              vals[2] = 583;
+            case 1:
+              vals[1] = 12;
+            case 0:
+              vals[0] = 1;
+          }
+          playBeep(vals[0], vals[1], vals[2]);
           break;
         case 'C':
           // drawCircle
@@ -1669,13 +1685,26 @@ void handle_timer() {
 }
 
 // Play Tone
-void playTone(int pin, int tone, int duration) {
-  for (long i = 0; i < duration * 1000L; i += tone * 2) {
-    digitalWrite(pin, HIGH);
-    delayMicroseconds(tone);
-    digitalWrite(pin, LOW);
-    delayMicroseconds(tone);
+void playTone(int Pin, int Tone, int Duration) {
+  for (long i = 0; i < Duration * 1000L; i += Tone * 2) {
+    digitalWrite(Pin, HIGH);
+    delayMicroseconds(Tone);
+    digitalWrite(Pin, LOW);
+    delayMicroseconds(Tone);
   }
+}
+
+// Play Beep
+void playBeep(const uint16_t Number, const uint8_t ToneNo, const uint16_t Duration) {
+  double freq = ((ToneNo == 12) && (Duration == 583)) ? 4000 : 256000.0 / (90 + 4 * ToneNo);
+  if (freq <  230.6) freq =  230.6;
+  if (freq > 2844.4) freq = 2844.4;
+  double timeHigh = 1000000L / (2 * freq);
+  for (uint16_t i = 0; i < Number; i++) {
+    playTone(SPK_PIN, timeHigh, Duration);
+    if (i < (Number - 1)) delay(300);
+  }
+  delay(20);
 }
 
 // セットアップ

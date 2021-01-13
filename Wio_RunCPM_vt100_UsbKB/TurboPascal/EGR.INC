@@ -23,6 +23,11 @@ const
     Write(_EGR, x0, ';', y0, ';', x1, ';', y1, ';', x2, ';', y2, ';', x3, ';', y3, 'B');
   end;
 
+  procedure Beep(n, t, d: Integer);
+  begin
+    Write(_EGR, n, ';', t, ';', d, 'b');
+  end;
+
   procedure DrawCircle(x, y, r: Integer);
   begin
     Write(_EGR, x, ';', y, ';', r, 'C');
@@ -43,7 +48,7 @@ const
     Write(_EGR, Ord(Flg), 'h');
   end;
 
-procedure DrawFastVLine(x, y, h: Integer);
+  procedure DrawFastVLine(x, y, h: Integer);
   begin
     Write(_EGR, x, ';', y, ';', h, 'V');
   end;
