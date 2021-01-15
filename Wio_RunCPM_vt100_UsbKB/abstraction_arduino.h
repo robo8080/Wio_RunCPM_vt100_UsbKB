@@ -487,9 +487,9 @@ uint8 _sys_makedisk(uint8 drive) {
 extern void printChar(char c);
 extern void printString(const char *str);
 extern void playBeep(const uint16_t Number, const uint8_t ToneNo, const uint16_t Duration);
+extern void loop();
 extern QueueHandle_t xQueue;
 
-extern void loop();
 int _kbhit(void) {
 //  return(Serial.available());
   loop();
