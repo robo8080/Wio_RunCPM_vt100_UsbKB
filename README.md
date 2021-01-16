@@ -14,6 +14,7 @@ RunCPM - Z80 CP/M 2.2 emulator <https://github.com/MockbaTheBorg/RunCPM><br>
 
 ### 必要な物 ###
 * [Wio Terminal](https://www.switch-science.com/catalog/6360/ "Title")<br>
+* [Wio Terminal 用バッテリーベース](https://www.switch-science.com/catalog/6816/ "Title")<br>
 * Arduino IDE (1.8.13で動作確認をしました。)<br>
 * [SAMD51 Interrupt Timer library](https://github.com/Dennis-van-Gils/SAMD51_InterruptTimer "Title")
 * [SDdFatライブラリ](https://github.com/greiman/SdFat "Title")
