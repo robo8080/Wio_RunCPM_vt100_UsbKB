@@ -17,7 +17,7 @@ RunCPM - Z80 CP/M 2.2 emulator <https://github.com/MockbaTheBorg/RunCPM><br>
 * [Wio Terminal 用バッテリーベース](https://www.switch-science.com/catalog/6816/ "Title")<br>
 * Arduino IDE (1.8.13で動作確認をしました。)<br>
 * [SAMD51 Interrupt Timer library](https://github.com/Dennis-van-Gils/SAMD51_InterruptTimer "Title")
-* [SDdFatライブラリ](https://github.com/greiman/SdFat "Title")
+* [SDdFatライブラリ](https://github.com/greiman/SdFat "Title") (2.0.4で動作確認をしました。)
 * [LovyanGFXライブラリ](https://github.com/lovyan03/LovyanGFX "Title")
 * USBキーボード
 * USB Type-C の変換コネクタ
@@ -27,11 +27,18 @@ RunCPM - Z80 CP/M 2.2 emulator <https://github.com/MockbaTheBorg/RunCPM><br>
 ライブラリはArduino IDEの[スケッチ | ライブラリをインクルード |ライブラリを管理...] からインストールすると簡単です。
 
 ---
+### SDdFatライブラリの修正 ###
+2.0.x では SdFatConfig.h に以下の修正が必要です。<br>
+ファイルは"ドキュメント\Arduino\libraries\SdFat\src"に有ります。
+
+![画像3](images/image3.png)<br><br>
+
+---
 ### 補足 ###
 CPU Speed を "200MHz" にして、Optimize を "Fastest" にすると描画速度が向上します。<br>
 ただし、バッテリーの消耗は早まるかもしれません。
 
-![画像3](images/image3.png)<br><br>
+![画像4](images/image4.png)<br><br>
 
 ---
 
