@@ -18,6 +18,7 @@ RunCPM - Z80 CP/M 2.2 emulator <https://github.com/MockbaTheBorg/RunCPM><br>
 * [SAMD51 Interrupt Timer library](https://github.com/Dennis-van-Gils/SAMD51_InterruptTimer "Title")
 * [SDdFatライブラリ](https://github.com/greiman/SdFat "Title")
 * [LovyanGFXライブラリ](https://github.com/lovyan03/LovyanGFX "Title")
+* [Seeed Arduino RTC ライブラリ](https://github.com/Seeed-Studio/Seeed_Arduino_RTC "Title")
 * USBキーボード
 * USB Type-C の変換コネクタ
 * microSD カード
