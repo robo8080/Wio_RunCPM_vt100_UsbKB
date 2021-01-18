@@ -15,11 +15,11 @@ RunCPM - Z80 CP/M 2.2 emulator <https://github.com/MockbaTheBorg/RunCPM><br>
 ### 必要な物 ###
 * [Wio Terminal](https://www.switch-science.com/catalog/6360/ "Title")<br>
 * Arduino IDE (1.8.13で動作確認をしました。)<br>
-* [SAMD51 Interrupt Timer library](https://github.com/Dennis-van-Gils/SAMD51_InterruptTimer "Title")
-* [SDdFatライブラリ](https://github.com/greiman/SdFat "Title")
-* [LovyanGFXライブラリ](https://github.com/lovyan03/LovyanGFX "Title")
+* [SAMD51 Interrupt Timer ライブラリ](https://github.com/Dennis-van-Gils/SAMD51_InterruptTimer "Title")
+* [SDdFat ライブラリ](https://github.com/greiman/SdFat "Title")
+* [LovyanGFX ライブラリ](https://github.com/lovyan03/LovyanGFX "Title")
 * [Seeed Arduino RTC ライブラリ](https://github.com/Seeed-Studio/Seeed_Arduino_RTC "Title")
-* USBキーボード
+* USB キーボード
 * USB Type-C の変換コネクタ
 * microSD カード
 <br>
