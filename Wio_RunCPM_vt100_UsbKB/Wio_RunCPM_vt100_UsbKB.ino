@@ -1731,9 +1731,6 @@ void setup() {
     digitalWrite(LED_04, LOW);
   */
 
-  pinMode(D0, OUTPUT);
-  digitalWrite(D0, LOW);
-
   // LCD の初期化
   lcd.init();
   lcd.startWrite();
