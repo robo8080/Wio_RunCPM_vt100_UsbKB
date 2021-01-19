@@ -62,13 +62,17 @@
 #define USE_EGR                   // EGR 拡張
 
 // キーボードタイプ
-#define USE_USBKB                 // USB Keyboard を使う  
-//#define USE_CARDKB                // CardKB を使う  
+//#define USE_USBKB                 // USB Keyboard を使う  
+#define USE_CARDKB                // CardKB を使う
 
 //-----------------------------------------------------------------------
 
 // ヘッダファイル
 #include "globals.h"
+
+// Delays for LED blinking
+#define sDELAY 50
+#define DELAY 100
 
 // PUN: device configuration
 #ifdef USE_PUN
@@ -82,7 +86,9 @@ File lst_dev;
 int lst_open = FALSE;
 #endif
 
-#include "hardware/wioterm.h"
+// Board definitions go into the "hardware" folder, if you use a board different than the
+// Arduino DUE, choose/change a file from there and replace arduino/due.h here
+#include "hardware/arduino/wioterm.h"
 #include "host.h"
 
 #include "abstraction_arduino.h"
@@ -1751,6 +1757,8 @@ void playBeep(const uint16_t Number, const uint8_t ToneNo, const uint16_t Durati
 
 // セットアップ
 void setup() {
+  pinMode(LED, OUTPUT);
+  digitalWrite(LED, LOW);
   Wire.begin( );    // Define(SDA, SCL)
   DebugSerial.begin(SERIALSPD);
   delay(500);
@@ -1801,7 +1809,7 @@ void setup() {
     DebugSerial.println(F("USB host did not start."));
   delay(20);
   digitalWrite(PIN_USB_HOST_ENABLE, LOW);
-  digitalWrite(OUTPUT_CTR_5V, HIGH);  
+  digitalWrite(OUTPUT_CTR_5V, HIGH);
 #endif
 
 #ifdef DEBUGLOG
@@ -1811,7 +1819,7 @@ void setup() {
   _clrscr();
   _puts("CP/M 2.2 Emulator v" VERSION " by Marcelo Dantas\r\n");
   _puts("Arduino read/write support by Krzysztof Klis\r\n");
-  _puts("      Build " __DATE__ " - " __TIME__ "\r\n");
+  _puts("      Built " __DATE__ " - " __TIME__ "\r\n");
   _puts("--------------------------------------------\r\n");
   _puts("CCP: " CCPname "    CCP Address: 0x");
   _puthex16(CCPaddr);
@@ -1824,8 +1832,12 @@ void setup() {
 #endif
   _puts("\r\n");
 
+#if defined board_esp32
+  _puts("Initializing SPI.\r\n");
+  SPI.begin(SPIINIT);
+#endif
   _puts("Initializing SD card.\r\n");
-  if (SD.begin(SDINIT, SD_SCK_MHZ(50))) {
+  if (SD.begin(SDINIT)) {
     if (VersionCCP >= 0x10 || SD.exists(CCPname)) {
       while (true) {
         _puts(CCPHEAD);
@@ -1864,9 +1876,21 @@ void setup() {
 
 // ループ
 void loop() {
+  digitalWrite(LED, HIGH ^ LEDinv);
+  delay(DELAY);
+  digitalWrite(LED, LOW ^ LEDinv);
+  delay(DELAY);
+  digitalWrite(LED, HIGH ^ LEDinv);
+  delay(DELAY);
+  digitalWrite(LED, LOW ^ LEDinv);
+  delay(DELAY * 4);
+}
+
+// ループ
+void loop2() {
   // RTC
   now = rtc.now();
-  
+
 #ifndef USE_CARDKB
   // USB
   usb.Task();
@@ -1897,7 +1921,7 @@ void loop() {
       prev_btn[i] = false;
     }
   }
-  
+
 #ifndef USE_CARDKB
   // カーソル表示処理
   if (canShowCursor || needCursorUpdate) {

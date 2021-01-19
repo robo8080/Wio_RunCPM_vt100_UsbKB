@@ -27,11 +27,7 @@ shoud be kept the same.
 #ifdef _WIN32
 #include "abstraction_vstudio.h"
 #else
-#ifdef __DJGPP
-#include "abstract.h"	// DOS (DJGPP) needs 8.3 naming convention
-#else
 #include "abstraction_posix.h"
-#endif
 #endif
 
 // AUX: device configuration
@@ -65,7 +61,7 @@ int main(int argc, char* argv[]) {
 	_console_init();
 	_clrscr();
 	_puts("CP/M 2.2 Emulator v" VERSION " by Marcelo Dantas\r\n");
-	_puts("      Build " __DATE__ " - " __TIME__ "\r\n");
+	_puts("      Built " __DATE__ " - " __TIME__ "\r\n");
 #ifdef HASLUA
 	_puts("       with Lua scripting support\r\n");
 #endif
