@@ -19,6 +19,16 @@
 #define HostOS 0x06
 #endif
 
+#ifdef USE_CARDKB
+// CrdKB I2C アドレス
+#define CARDKB_ADDR 0x5F
+// キー変換テーブル
+PROGMEM const uint8 KEY_TBL[48] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x1e, 0x1c, 0x1f, 0x1b, 0x1d, 0x00, 
+                                   0x00, 0x11, 0x17, 0x05, 0x12, 0x14, 0x19, 0x15, 0x09, 0x0f, 0x10, 0x00, 
+                                   0x00, 0x00, 0x01, 0x13, 0x04, 0x06, 0x07, 0x08, 0x0a, 0x0b, 0x0c, 0x00, 
+                                   0x00, 0x00, 0x1a, 0x18, 0x03, 0x16, 0x02, 0x0e, 0x0d, 0x00, 0x00, 0x00};
+#endif
+
 /* Memory abstraction functions */
 /*===============================================================================*/
 bool _RamLoad(char* filename, uint16 address) {
@@ -490,31 +500,71 @@ extern void playBeep(const uint16_t Number, const uint8_t ToneNo, const uint16_t
 extern void loop();
 extern QueueHandle_t xQueue;
 
+#ifdef USE_CARDKB
+extern bool canShowCursor;    // カーソル表示可能か？
+extern void dispCursor(bool forceupdate);
+static uint8 kbhit_char = 0;
+#endif
+
 int _kbhit(void) {
-//  return(Serial.available());
   loop();
+#ifdef USE_CARDKB
+  if (!kbhit_char)
+  {
+    if (Wire.requestFrom(CARDKB_ADDR, 1))
+    {
+      kbhit_char = Wire.read();
+      switch (kbhit_char)
+      {
+      case 0x07:
+        break;
+      case 0x82:          // Fn-2 (Ctrl+@)
+      case 0x86:          // Fn-6 (Ctrl+^)
+      case 0x87:          // Fn-7 (Ctrl+\)
+      case 0x88:          // Fn-8 (Ctrl+_)
+      case 0x89:          // Fn-9 (Ctrl+[)
+      case 0x8a:          // Fn-0 (Ctrl+])
+      case 0x8d ... 0x96: // Fn-Q..P
+      case 0x9a ... 0xa2: // Fn-A..L
+      case 0xa6 ... 0xac: // Fn-Z..M
+        kbhit_char = KEY_TBL[kbhit_char - 0x80];
+        break;
+      default:
+        break;
+      }
+    }
+    if ((!kbhit_char) && (uxQueueMessagesWaiting(xQueue))) {
+      xQueueReceive( xQueue, &kbhit_char, 0 );
+    }
+  }
+  if (canShowCursor || kbhit_char)
+     dispCursor(kbhit_char);
+  return kbhit_char;
+#else
   return(uxQueueMessagesWaiting(xQueue));
+#endif  
 }
 
 uint8 _getch(void) {
-//  while (!Serial.available());
-//  return(Serial.read());
+#ifdef USE_CARDKB
+  while (!_kbhit());
+  uint8 ch = kbhit_char;
+  kbhit_char = 0;
+#else
   while (!uxQueueMessagesWaiting(xQueue))loop();
   uint8 ch;
   xQueueReceive( xQueue, &ch, 0 );
+#endif  
   return(ch);
 }
 
 uint8 _getche(void) {
 	uint8 ch = _getch();
-//	Serial.write(ch);
   printChar(ch);
 	return(ch);
 }
 
 void _putch(uint8 ch) {
-//	Serial.write(ch);
-//  printChar(ch);
   switch (ch) {
     case 0x07:
       playBeep(1, 12, 583);
@@ -526,7 +576,6 @@ void _putch(uint8 ch) {
 }
 
 void _clrscr(void) {
-//	Serial.println("\e[H\e[J");
   printString("\e[H\e[2J");
 }
 
