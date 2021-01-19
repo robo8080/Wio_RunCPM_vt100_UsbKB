@@ -30,6 +30,10 @@
 #include "globals.h"
 #include <SdFat.h>
 // https://github.com/greiman/SdFat
+#include "RTC_SAMD51.h"
+// https://github.com/Seeed-Studio/Seeed_Arduino_RTC
+#include "DateTime.h"
+
 #include "hardware/wioterm.h"
 #include "abstraction_arduino.h"
 
@@ -61,31 +65,31 @@ int lst_open = FALSE;
 //------Settings---------------------------------------------------------
 
 // フォント
-//#include <font6x8tt.h>      // 6x8 ドットフォント (TTBASIC 付属)
-//#include "font6x8e200.h"    // 6x8 ドットフォント (SHARP PC-E200 風)
-//#include "font6x8e500.h"    // 6x8 ドットフォント (SHARP PC-E500 風)
-#include "font6x8sc1602b.h" // 6x8 ドットフォント (SUNLIKE SC1602B 風)
+//#include <font6x8tt.h>            // 6x8 ドットフォント (TTBASIC 付属)
+//#include "font6x8e200.h"          // 6x8 ドットフォント (SHARP PC-E200 風)
+//#include "font6x8e500.h"          // 6x8 ドットフォント (SHARP PC-E500 風)
+#include "font6x8sc1602b.h"       // 6x8 ドットフォント (SUNLIKE SC1602B 風)
 
 // フォント管理用
-#define CH_W          6       // フォント横サイズ
-#define CH_H          8       // フォント縦サイズ
+#define CH_W          6           // フォント横サイズ
+#define CH_H          8           // フォント縦サイズ
 
 // スクリーン管理用
-#define RSP_W         320     // 実ピクセルスクリーン横サイズ
-#define RSP_H         240     // 実ピクセルスクリーン縦サイズ
-#define SC_W          52      // キャラクタスクリーン横サイズ (<= 53)
-#define SC_H          29      // キャラクタスクリーン縦サイズ (<= 30)
+#define RSP_W         320         // 実ピクセルスクリーン横サイズ
+#define RSP_H         240         // 実ピクセルスクリーン縦サイズ
+#define SC_W          52          // キャラクタスクリーン横サイズ (<= 53)
+#define SC_H          29          // キャラクタスクリーン縦サイズ (<= 30)
 
 // 色
-#define FORE_COLOR    clWhite // 初期前景色
-#define BACK_COLOR    clBlue  // 初期背景色
-#define CURSOR_COLOR  clWhite // カーソル色
+#define FORE_COLOR    clWhite     // 初期前景色
+#define BACK_COLOR    clBlue      // 初期背景色
+#define CURSOR_COLOR  clWhite     // カーソル色
 
 // エスケープシーケンス
-#define USE_EGR               // EGR 拡張
+#define USE_EGR                   // EGR 拡張
 
 // スピーカー制御用ピン
-#define SPK_PIN       WIO_BUZZER
+#define SPK_PIN       WIO_BUZZER  // Wio Terminal
 
 //-----------------------------------------------------------------------
 
@@ -297,7 +301,7 @@ union COLOR bColor = defaultColor;
 
 // CSI / EGR パラメータ
 int16_t nVals = 0;
-int16_t vals[10] = {0};
+int16_t vals[10] = {};
 
 // カーソル描画用
 bool needCursorUpdate = false;
@@ -539,7 +543,7 @@ void clearParams(em m) {
   escMode = m;
   isDECPrivateMode = false;
   nVals = 0;
-  vals[0] = vals[1] = vals[2] = vals[3] = 0;
+  memset(vals, 0, sizeof(vals));
   hasParam = false;
   isNegative = false;
 }
@@ -832,8 +836,10 @@ void printChar(char c) {
       hasParam = false;
       isNegative = false;
     } else {
-      if (isNegative) vals[nVals] = -vals[nVals];
-      if (hasParam) nVals++;
+      if (hasParam) {
+        if (isNegative) vals[nVals] = -vals[nVals];
+        nVals++;
+      }
       switch (c) {
         case 'A':
           // drawArc
@@ -1725,6 +1731,9 @@ void setup() {
     digitalWrite(LED_04, LOW);
   */
 
+  pinMode(D0, OUTPUT);
+  digitalWrite(D0, LOW);
+
   // LCD の初期化
   lcd.init();
   lcd.startWrite();
@@ -1734,6 +1743,9 @@ void setup() {
   fontTop = (uint8_t*)font6x8tt + 3;
   resetToInitialState();
   setCursorToHome();
+
+  // RTC の初期化
+  rtc.begin();
 
   // カーソル用タイマーの設定
   TC.startTimer(200000, handle_timer); // 200ms
@@ -1811,6 +1823,10 @@ void setup() {
 
 // ループ
 void loop() {
+  // RTC
+  now = rtc.now();
+
+  // USB
   usb.Task();
 
   // スイッチ
