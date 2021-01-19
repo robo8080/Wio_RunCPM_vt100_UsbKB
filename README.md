@@ -22,6 +22,7 @@ RunCPM - Z80 CP/M 2.2 emulator <https://github.com/MockbaTheBorg/RunCPM><br>
 * [Seeed_Arduino_RTC ライブラリ](https://github.com/Seeed-Studio/Seeed_Arduino_RTC "Title")
 * USBキーボード
 * USB Type-C の変換コネクタ
+* [M5Stack用カード型キーボードユニット](https://www.switch-science.com/catalog/5689/ "Title")
 * microSD カード
 <br>
 
