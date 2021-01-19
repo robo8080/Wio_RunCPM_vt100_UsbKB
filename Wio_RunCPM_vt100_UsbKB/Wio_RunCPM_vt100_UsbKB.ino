@@ -4,6 +4,8 @@
 /*                                                          */
 /*   Wio_RunCPM_vt100_UsbKB                                 */
 /*     https://github.com/robo8080/Wio_RunCPM_vt100_UsbKB   */
+/*   Wio_RunCPM_vt100_CardKB                                */
+/*     https://github.com/robo8080/Wio_RunCPM_vt100_CardKB  */
 /*                                                          */
 /*   RunCPM - Z80 CP/M 2.2 emulator                         */
 /*     https://github.com/MockbaTheBorg/RunCPM              */
@@ -12,55 +14,26 @@
 /*                                                          */
 /************************************************************/
 
+#include <Arduino.h>
+#include <SPI.h>っっｄ
+#include <Reset.h>
+
 //------VT100_WT---------------------------------------------------------
 
-#include <Arduino.h>
 #include <Seeed_Arduino_FreeRTOS.h>
 // https://github.com/Seeed-Studio/Seeed_Arduino_FreeRTOS
-#include <SPI.h>
 #include <LovyanGFX.hpp>
 // https://github.com/lovyan03/LovyanGFX
 #include <SAMD51_InterruptTimer.h>
 // https://github.com/Dennis-van-Gils/SAMD51_InterruptTimer
-#include <Reset.h>
-#include <KeyboardController.h>
 
 //------RunCPM-----------------------------------------------------------
 
-#include "globals.h"
 #include <SdFat.h>
 // https://github.com/greiman/SdFat
 #include "RTC_SAMD51.h"
 // https://github.com/Seeed-Studio/Seeed_Arduino_RTC
 #include "DateTime.h"
-
-#include "hardware/wioterm.h"
-#include "abstraction_arduino.h"
-
-// Serial port speed
-#define SERIALSPD 9600
-
-// PUN: device configuration
-#ifdef USE_PUN
-File pun_dev;
-int pun_open = FALSE;
-#endif
-
-// LST: device configuration
-#ifdef USE_LST
-File lst_dev;
-int lst_open = FALSE;
-#endif
-
-#include "ram.h"
-#include "console.h"
-#include "cpu.h"
-#include "disk.h"
-#include "host.h"
-#include "cpm.h"
-#ifdef CCP_INTERNAL
-#include "ccp.h"
-#endif
 
 //------Settings---------------------------------------------------------
 
@@ -88,16 +61,59 @@ int lst_open = FALSE;
 // エスケープシーケンス
 #define USE_EGR                   // EGR 拡張
 
-// スピーカー制御用ピン
-#define SPK_PIN       WIO_BUZZER  // Wio Terminal
+// キーボードタイプ
+#define USE_USBKB                 // USB Keyboard を使う  
+//#define USE_CARDKB                // CardKB を使う  
 
 //-----------------------------------------------------------------------
+
+// ヘッダファイル
+#include "globals.h"
+
+// PUN: device configuration
+#ifdef USE_PUN
+File pun_dev;
+int pun_open = FALSE;
+#endif
+
+// LST: device configuration
+#ifdef USE_LST
+File lst_dev;
+int lst_open = FALSE;
+#endif
+
+#include "hardware/wioterm.h"
+#include "host.h"
+
+#include "abstraction_arduino.h"
+#include "ram.h"
+#include "console.h"
+#include "cpu.h"
+#include "disk.h"
+#include "cpm.h"
+#ifdef CCP_INTERNAL
+#include "ccp.h"
+#endif
+
+// キーボード制御用
+#ifdef USE_CARDKB
+#include <Wire.h>
+#else
+#include <KeyboardController.h>
+USBHost usb;
+KeyboardController keyboard(usb);
+#endif
 
 // 交換
 #define swap(a, b) { uint16_t t = a; a = b; b = t; }
 
 // シリアル
+#ifdef USE_CARDKB
+#define DebugSerial Serial
+#else
 #define DebugSerial Serial1
+#endif
+#define SERIALSPD 115200
 
 // LED 制御用ピン
 /*
@@ -106,6 +122,9 @@ int lst_open = FALSE;
   #define LED_03  D4
   #define LED_04  D5
 */
+
+// スピーカー制御用ピン
+#define SPK_PIN       WIO_BUZZER  // Wio Terminal
 
 // 文字アトリビュート用
 struct TATTR {
@@ -243,6 +262,38 @@ bool isDECPrivateMode = false; // DEC Private Mode (<ESC> [ ?)
 union MODE mode = {defaultMode};
 union MODE_EX mode_ex = {defaultModeEx};
 
+// コマンドの長さ
+PROGMEM const int CMD_LEN = 4;
+
+// 5 方向スイッチとユーザー定義ボタン
+enum WIO_SW {SW_UP, SW_DOWN, SW_RIGHT, SW_LEFT, SW_PRESS};
+enum WIO_BTN {BT_A, BT_B, BT_C};
+PROGMEM const int SW_PORT[5] = {WIO_5S_UP, WIO_5S_DOWN, WIO_5S_RIGHT, WIO_5S_LEFT, WIO_5S_PRESS};
+PROGMEM const int BTN_PORT[3] = {WIO_KEY_A, WIO_KEY_B, WIO_KEY_C};
+bool prev_sw[5] = {false, false, false, false, false};
+bool prev_btn[3] = {false, false, false};
+
+#ifdef USE_CARDKB
+/********************************************
+  キーボードと Wio Terminal のボタンとスイッチの対応
+  +-------------+--------------+-----------+
+  | キーボード  | Wio Terminal |  ESC SEQ  |
+  +-------------+--------------+-----------+
+  | [fn] 3      | WIO_KEY_C    | 0x83      |
+  | [fn] 4      | WIO_KEY_B    | 0x84      |
+  | [fn] 5      | WIO_KEY_A    | 0x85      |
+  | [UP]        | WIO_5S_UP    | 0xB5      |
+  | [DOWN]      | WIO_5S_DOWN  | 0xB6      |
+  | [RIGHT]     | WIO_5S_RIGHT | 0xB7      |
+  | [LEFT]      | WIO_5S_LEFT  | 0xB4      |
+  | [ENTER]     | WIO_5S_PRESS | [CR]      |
+  +-------------+--------------+-----------+
+********************************************/
+// スイッチ情報
+PROGMEM const char SW_CMD[5][CMD_LEN] = {"\xb5", "\xb6", "\xb7", "\xb4", "\r"};
+// ボタン情報
+PROGMEM const char BTN_CMD[3][CMD_LEN] = {"\x85", "\x84", "\x83"};
+#else
 /********************************************
   キーボードと Wio Terminal のボタンとスイッチの対応
   +-------------+--------------+-----------+
@@ -258,30 +309,19 @@ union MODE_EX mode_ex = {defaultModeEx};
   | [ENTER]     | WIO_5S_PRESS | [CR]      |
   +-------------+--------------+-----------+
 ********************************************/
-
-// コマンドの長さ
-PROGMEM const int CMD_LEN = 4;
+// スイッチ情報
+PROGMEM const char SW_CMD[5][CMD_LEN] = {"\eOA", "\eOB", "\eOC", "\eOD", "\r"};
+// ボタン情報
+PROGMEM const char BTN_CMD[3][CMD_LEN] = {"\eOR", "\eOQ", "\eOP"};
+// 特殊キー情報
+enum SP_KEY {KY_HOME, KY_INS, KY_DEL, KY_END, KY_PGUP, KY_PGDOWN};
+PROGMEM const char KEY_CMD[6][CMD_LEN] = {"\eO1", "\eO2", "\x7F", "\eO4", "\eO5", "\eO6"};
+#endif
 
 // キー
 int key;
 void printKey();
 void printSpecialKey(const char *str);
-
-// スイッチ情報
-enum WIO_SW {SW_UP, SW_DOWN, SW_RIGHT, SW_LEFT, SW_PRESS};
-PROGMEM const int SW_PORT[5] = {WIO_5S_UP, WIO_5S_DOWN, WIO_5S_RIGHT, WIO_5S_LEFT, WIO_5S_PRESS};
-PROGMEM const char SW_CMD[5][CMD_LEN] = {"\eOA", "\eOB", "\eOC", "\eOD", "\r"};
-bool prev_sw[5] = {false, false, false, false, false};
-
-// ボタン情報
-enum WIO_BTN {BT_A, BT_B, BT_C};
-PROGMEM const int BTN_PORT[3] = {WIO_KEY_A, WIO_KEY_B, WIO_KEY_C};
-PROGMEM const char BTN_CMD[3][CMD_LEN] = {"\eOR", "\eOQ", "\eOP"};
-bool prev_btn[3] = {false, false, false};
-
-// 特殊キー情報
-enum SP_KEY {KY_HOME, KY_INS, KY_DEL, KY_END, KY_PGUP, KY_PGDOWN};
-PROGMEM const char KEY_CMD[6][CMD_LEN] = {"\eO1", "\eO2", "\x7F", "\eO4", "\eO5", "\eO6"};
 
 // 前回位置情報
 int16_t p_XP = 0;
@@ -314,14 +354,9 @@ QueueHandle_t xQueue;
 // LCD 制御用
 static LGFX lcd;
 
-// USB 制御用
-USBHost usb;
-
-// キーボード制御用
-KeyboardController keyboard(usb);
-
 // -----------------------------------------------------------------------------
 
+#ifndef USE_CARDKB
 // イベント: キーを押した
 void keyPressed() {
   //printKey();
@@ -387,6 +422,8 @@ void printKey() {
     }
   }
 }
+#endif
+
 
 // 特殊キーの送信
 void printSpecialKey(const char *str) {
@@ -469,9 +506,9 @@ void sc_updateLine(uint16_t ln) {
   union ATTR a;
   union COLOR l;
 
-  for (uint16_t i = 0; i < CH_H; i++) {        // 1文字高さ分ループ
+  for (uint16_t i = 0; i < CH_H; i++) {            // 1文字高さ分ループ
     cnt = 0;
-    for (uint16_t clm = 0; clm < SC_W; clm++) { // 横文字数分ループ
+    for (uint16_t clm = 0; clm < SC_W; clm++) {    // 横文字数分ループ
       idx = ln * SC_W + clm;
       c  = screen[idx];                            // キャラクタの取得
       a.value = attrib[idx];                       // 文字アトリビュートの取得
@@ -1392,7 +1429,6 @@ void selectGraphicRendition(int16_t *vals, int16_t nVals) {
   uint8_t seq = 0;
   uint16_t r, g, b, cIdx;
   bool isFore = true;
-
   for (int16_t i = 0; i < nVals; i++) {
     int16_t v = vals[i];
     switch (seq) {
@@ -1715,7 +1751,8 @@ void playBeep(const uint16_t Number, const uint8_t ToneNo, const uint16_t Durati
 
 // セットアップ
 void setup() {
-  DebugSerial.begin(115200);
+  Wire.begin( );    // Define(SDA, SCL)
+  DebugSerial.begin(SERIALSPD);
   delay(500);
   xQueue = xQueueCreate( QUEUE_LENGTH, sizeof( uint8_t ) );
 
@@ -1758,12 +1795,14 @@ void setup() {
   // ブザーの初期化
   pinMode(SPK_PIN, OUTPUT);
 
+#ifndef USE_CARDKB
   // キーボードの初期化
   if (usb.Init())
     DebugSerial.println(F("USB host did not start."));
   delay(20);
   digitalWrite(PIN_USB_HOST_ENABLE, LOW);
-  digitalWrite(OUTPUT_CTR_5V, HIGH);
+  digitalWrite(OUTPUT_CTR_5V, HIGH);  
+#endif
 
 #ifdef DEBUGLOG
   _sys_deletefile((uint8 *)LogName);
@@ -1778,6 +1817,11 @@ void setup() {
   _puthex16(CCPaddr);
   _puts("\r\nBOARD: ");
   _puts(BOARD);
+#ifdef USE_CARDKB
+  _puts(" (CardKB)");
+#else
+  _puts(" (USB KB)");
+#endif
   _puts("\r\n");
 
   _puts("Initializing SD card.\r\n");
@@ -1822,9 +1866,11 @@ void setup() {
 void loop() {
   // RTC
   now = rtc.now();
-
+  
+#ifndef USE_CARDKB
   // USB
   usb.Task();
+#endif
 
   // スイッチ
   for (int i = 0; i < 5; i++) {
@@ -1851,10 +1897,12 @@ void loop() {
       prev_btn[i] = false;
     }
   }
-
+  
+#ifndef USE_CARDKB
   // カーソル表示処理
   if (canShowCursor || needCursorUpdate) {
     dispCursor(needCursorUpdate);
     needCursorUpdate = false;
   }
+#endif
 }
