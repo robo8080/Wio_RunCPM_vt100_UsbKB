@@ -66,6 +66,10 @@
 
 //-----------------------------------------------------------------------
 
+#if defined board_esp32
+#undef USE_CARDKB
+#endif
+
 // ヘッダファイル
 #include "globals.h"
 
@@ -88,8 +92,8 @@ int lst_open = FALSE;
 // Board definitions go into the "hardware" folder, if you use a board different than the
 // Arduino DUE, choose/change a file from there and replace arduino/due.h here
 #include "hardware/arduino/wioterm.h"
-#include "host.h"
 
+#include "host.h"
 #include "abstraction_arduino.h"
 #include "ram.h"
 #include "console.h"
@@ -130,6 +134,9 @@ KeyboardController keyboard(usb);
 
 // スピーカー制御用ピン
 #define SPK_PIN       WIO_BUZZER  // Wio Terminal
+
+// キュー
+#define QUEUE_LENGTH 100
 
 // 文字アトリビュート用
 struct TATTR {
@@ -279,7 +286,7 @@ bool prev_sw[5] = {false, false, false, false, false};
 bool prev_btn[3] = {false, false, false};
 
 #ifdef USE_CARDKB
-/********************************************
+/*** CardKB *********************************
   キーボードと Wio Terminal のボタンとスイッチの対応
   +-------------+--------------+-----------+
   | キーボード  | Wio Terminal |  ESC SEQ  |
@@ -299,7 +306,7 @@ PROGMEM const char SW_CMD[5][CMD_LEN] = {"\xb5", "\xb6", "\xb7", "\xb4", "\r"};
 // ボタン情報
 PROGMEM const char BTN_CMD[3][CMD_LEN] = {"\x85", "\x84", "\x83"};
 #else
-/********************************************
+/*** USB Keyboard ***************************
   キーボードと Wio Terminal のボタンとスイッチの対応
   +-------------+--------------+-----------+
   | キーボード  | Wio Terminal |  ESC SEQ  |
@@ -351,10 +358,6 @@ int16_t vals[10] = {};
 // カーソル描画用
 bool needCursorUpdate = false;
 bool hideCursor = false;
-
-// キュー
-#define QUEUE_LENGTH 100
-QueueHandle_t xQueue;
 
 // LCD 制御用
 static LGFX lcd;
@@ -1788,9 +1791,6 @@ void setup() {
   // RTC の初期化
   rtc.begin();
 
-  // カーソル用タイマーの設定
-  TC.startTimer(200000, handle_timer); // 200ms
-
   // スイッチの初期化
   for (int i = 0; i < 5; i++)
     pinMode(SW_PORT[i], INPUT_PULLUP);
@@ -1798,6 +1798,9 @@ void setup() {
   // ボタンの初期化
   for (int i = 0; i < 3; i++)
     pinMode(BTN_PORT[i], INPUT_PULLUP);
+
+  // カーソル用タイマーの設定
+  TC.startTimer(200000, handle_timer); // 200ms
 
   // ブザーの初期化
   pinMode(SPK_PIN, OUTPUT);
