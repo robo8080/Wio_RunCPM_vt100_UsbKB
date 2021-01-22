@@ -11,6 +11,7 @@ SdFat SD;
 #define board_analog_io
 #define board_digital_io
 
+QueueHandle_t xQueue;
 RTC_SAMD51 rtc;
 DateTime now;
 
