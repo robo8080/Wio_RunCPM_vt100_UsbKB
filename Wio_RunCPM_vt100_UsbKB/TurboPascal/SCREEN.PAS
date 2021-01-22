@@ -3,7 +3,7 @@ var
   Mode, v, i: Integer;
 begin
   if (ParamCount = 0) then
-    Mode = 0
+    Mode := 0
   else
     begin
       Val(ParamStr(1), v, i);
