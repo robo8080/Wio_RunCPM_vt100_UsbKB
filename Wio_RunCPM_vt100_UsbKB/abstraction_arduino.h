@@ -494,7 +494,6 @@ extern void printChar(char c);
 extern void printString(const char *str);
 extern void playBeep(const uint16_t Number, const uint8_t ToneNo, const uint16_t Duration);
 extern void loop2();
-extern QueueHandle_t xQueue;
 
 #ifdef USE_CARDKB
 extern bool canShowCursor;    // カーソル表示可能か？
