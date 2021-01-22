@@ -36,21 +36,26 @@
 
 //------Settings---------------------------------------------------------
 
-// フォント
+// フォント: 53 Columns (font: 6x8)
 //#include <font6x8tt.h>            // 6x8 ドットフォント (TTBASIC 付属)
 //#include "font6x8e200.h"          // 6x8 ドットフォント (SHARP PC-E200 風)
 //#include "font6x8e500.h"          // 6x8 ドットフォント (SHARP PC-E500 風)
 #include "font6x8sc1602b.h"       // 6x8 ドットフォント (SUNLIKE SC1602B 風)
+#define NORM_CH_W     6           // フォント横サイズ
+#define NORM_CH_H     8           // フォント縦サイズ
+#define NORM_SC_W     52          // キャラクタスクリーン横サイズ (<= 53)
+#define NORM_SC_H     29          // キャラクタスクリーン縦サイズ (<= 30)
 
-// フォント管理用
-#define CH_W          6           // フォント横サイズ
-#define CH_H          8           // フォント縦サイズ
+// フォント: 80 Columns (font: 4x8)
+#include "font4x8yk.h"            // 4x8 ドットフォント
+#define WIDE_CH_W     4           // フォント横サイズ
+#define WIDE_CH_H     8           // フォント縦サイズ
+#define WIDE_SC_W     80          // キャラクタスクリーン横サイズ (<= 80)
+#define WIDE_SC_H     29          // キャラクタスクリーン縦サイズ (<= 30)
 
 // スクリーン管理用
 #define RSP_W         320         // 実ピクセルスクリーン横サイズ
 #define RSP_H         240         // 実ピクセルスクリーン縦サイズ
-#define SC_W          52          // キャラクタスクリーン横サイズ (<= 53)
-#define SC_H          29          // キャラクタスクリーン縦サイズ (<= 30)
 
 // 色
 #define FORE_COLOR    clWhite     // 初期前景色
@@ -61,8 +66,8 @@
 #define USE_EGR                   // EGR 拡張
 
 // キーボードタイプ
-//#define USE_USBKB                 // USB Keyboard を使う  
-#define USE_CARDKB                // CardKB を使う
+#define USE_USBKB                 // USB Keyboard を使う  
+//#define USE_CARDKB                // CardKB を使う
 
 //-----------------------------------------------------------------------
 
@@ -220,19 +225,6 @@ union MODE_EX {
   struct TMODE_EX Flgs;
 };
 
-// 座標やサイズのプレ計算
-PROGMEM const uint16_t SCSIZE      = SC_W * SC_H;        // キャラクタスクリーンサイズ
-PROGMEM const uint16_t SP_W        = SC_W * CH_W;        // ピクセルスクリーン横サイズ
-PROGMEM const uint16_t SP_H        = SC_H * CH_H;        // ピクセルスクリーン縦サイズ
-PROGMEM const uint16_t MAX_CH_X    = CH_W - 1;           // フォント最大横位置
-PROGMEM const uint16_t MAX_CH_Y    = CH_H - 1;           // フォント最大縦位置
-PROGMEM const uint16_t MAX_SC_X    = SC_W - 1;           // キャラクタスクリーン最大横位置
-PROGMEM const uint16_t MAX_SC_Y    = SC_H - 1;           // キャラクタスクリーン最大縦位置
-PROGMEM const uint16_t MAX_SP_X    = SP_W - 1;           // ピクセルスクリーン最大横位置
-PROGMEM const uint16_t MAX_SP_Y    = SP_H - 1;           // ピクセルスクリーン最大縦位置
-PROGMEM const uint16_t MARGIN_LEFT = (RSP_W - SP_W) / 2; // 左マージン
-PROGMEM const uint16_t MARGIN_TOP  = (RSP_H - SP_H) / 2; // 上マージン
-
 // 色
 PROGMEM const uint8_t clBlack   = 0;
 PROGMEM const uint8_t clRed     = 1;
@@ -251,26 +243,47 @@ PROGMEM const union COLOR defaultColor = {(BACK_COLOR << 4) | FORE_COLOR};
 
 // スクロール有効行
 uint16_t M_TOP    = 0;        // スクロール行上限
-uint16_t M_BOTTOM = MAX_SC_Y; // スクロール行下限
+uint16_t M_BOTTOM;            // スクロール行下限
 
 // フォント先頭アドレス
 uint8_t* fontTop;
 
 // バッファ
-uint8_t screen[SCSIZE];       // スクリーンバッファ
-uint8_t attrib[SCSIZE];       // 文字アトリビュートバッファ
-uint8_t colors[SCSIZE];       // カラーアトリビュートバッファ
-uint8_t tabs[SC_W];           // タブ位置バッファ
+uint8_t screen[WIDE_SC_W * WIDE_SC_H];       // スクリーンバッファ
+uint8_t attrib[WIDE_SC_W * WIDE_SC_H];       // 文字アトリビュートバッファ
+uint8_t colors[WIDE_SC_W * WIDE_SC_H];       // カラーアトリビュートバッファ
+uint8_t tabs[WIDE_SC_W];                     // タブ位置バッファ
+
+// スクリーンプレ計算用
+uint16_t CH_W;                // フォント横サイズ
+uint16_t CH_H;                // フォント縦サイズ
+uint16_t SC_W;                // キャラクタスクリーン横サイズ
+uint16_t SC_H;                // キャラクタスクリーン縦サイズ
+uint16_t SCSIZE;              // キャラクタスクリーンサイズ
+uint16_t SP_W;                // ピクセルスクリーン横サイズ
+uint16_t SP_H;                // ピクセルスクリーン縦サイズ
+uint16_t MAX_CH_X;            // フォント最大横位置
+uint16_t MAX_CH_Y;            // フォント最大縦位置
+uint16_t MAX_SC_X;            // キャラクタスクリーン最大横位置
+uint16_t MAX_SC_Y;            // キャラクタスクリーン最大縦位置
+uint16_t MAX_SP_X;            // ピクセルスクリーン最大横位置
+uint16_t MAX_SP_Y;            // ピクセルスクリーン最大縦位置
+uint16_t MARGIN_LEFT;         // 左マージン
+uint16_t MARGIN_TOP;          // 上マージン
 
 // 状態
-PROGMEM enum class em {NONE,  ES, CSI, CSI2, LSC, G0S, G1S, EGR};
+PROGMEM enum class em {NONE,  ES, CSI, CSI2, LSC, G0S, G1S, TV1, TV2, EGR};
 em escMode = em::NONE;         // エスケープシーケンスモード
+PROGMEM enum class sm {NORMAL, WIDE};
+sm scrMode = sm::NORMAL;       // スクリーンモード
 bool isShowCursor = false;     // カーソル表示中か？
 bool canShowCursor = false;    // カーソル表示可能か？
 bool lastShowCursor = false;   // 前回のカーソル表示状態
 bool hasParam = false;         // <ESC> [ がパラメータを持っているか？
 bool isNegative = false;       // パラメータにマイナス符号が付いているか？
 bool isDECPrivateMode = false; // DEC Private Mode (<ESC> [ ?)
+bool isGradientBold = false;
+bool isTELEVIDEO = false;
 union MODE mode = {defaultMode};
 union MODE_EX mode_ex = {defaultModeEx};
 
@@ -364,6 +377,29 @@ static LGFX lcd;
 
 // -----------------------------------------------------------------------------
 
+// 輝度を落とした色(太字表示に使用)の生成
+static inline uint16_t RGB565dark(uint16_t col) {
+    uint16_t r = 0;
+    uint16_t g = 0;
+    uint16_t b = 0;
+    uint16_t res = 0;
+
+#if 1
+    // 輝度75%
+    r = ((col & 0xf800) >> 11) * 3 / 4;
+    g = ((col & 0x07e0) >> 5) * 3 / 4;
+    b =  (col & 0x001f) * 3 / 4;
+#else
+    // 輝度66%
+    r = ((col & 0xf800) >> 11) * 2 / 3;
+    g = ((col & 0x07e0) >> 5) * 2 / 3;
+    b =  (col & 0x001f) * 2 / 3;
+#endif
+    res = (r << 11) | (g << 5) | b;
+
+    return res;
+}
+
 #ifndef USE_CARDKB
 // イベント: キーを押した
 void keyPressed() {
@@ -451,6 +487,7 @@ void sc_updateChar(uint16_t x, uint16_t y) {
   l.value = colors[idx];             // カラーアトリビュートの取得
   uint16_t fore = aColors[l.Color.Foreground | (a.Bits.Blink << 3)];
   uint16_t back = aColors[l.Color.Background | (a.Bits.Blink << 3)];
+  uint16_t foreDark = RGB565dark(fore);
 
   if (a.Bits.Reverse) swap(fore, back);
   if (mode_ex.Flgs.ScreenReverse) swap(fore, back);
@@ -460,7 +497,14 @@ void sc_updateChar(uint16_t x, uint16_t y) {
     bool prev = (a.Bits.Underline && (i == MAX_CH_Y));
     for (int j = 0; j < CH_W; j++) {
       bool pset = ((*ptr) & (0x80 >> j));
-      buf[cnt] = (pset || prev) ? fore : back;
+      if (isGradientBold) {
+        if (pset) 
+          buf[cnt] = fore;
+        else 
+          buf[cnt] = (prev) ? foreDark : back;
+      } else {
+        buf[cnt] = (pset || prev) ? fore : back;
+      }
       if (a.Bits.Bold)
         prev = pset;
       cnt++;
@@ -637,9 +681,14 @@ void printChar(char c) {
             restoreCursor();
             break;
           case '=':
-            // DECKPAM (Keypad Application Mode): アプリケーションキーパッドモードにセット
-            keypadApplicationMode();
-            break;
+            if (isTELEVIDEO) {
+              escMode = em::TV1;
+              return;         
+            } else {
+              // DECKPAM (Keypad Application Mode): アプリケーションキーパッドモードにセット
+              keypadApplicationMode();
+              break;
+            }
           case '>':
             // DECKPNM (Keypad Numeric Mode): 数値キーパッドモードにセット
             keypadNumericMode();
@@ -668,6 +717,11 @@ void printChar(char c) {
             // RIS (Reset To Initial State): リセット
             resetToInitialState();
             break;
+          case 'T':
+            if (isTELEVIDEO) {
+              eraseInLine(0);
+              break;
+            }
           default:
             // 未確認のシーケンス
             unknownSequence(escMode, c);
@@ -864,8 +918,8 @@ void printChar(char c) {
     return;
   }
 
-  // "%" EGR シーケンス
 #ifdef USE_EGR
+  // "%" EGR シーケンス
   if (escMode == em::EGR) {
     if (isdigit(c) || c == '-') {
       // [パラメータ]
@@ -1000,10 +1054,46 @@ void printChar(char c) {
   }
 #endif
 
-  // 改行 (LF / VT / FF)
-  if ((c == 0x0a) || (c == 0x0b) || (c == 0x0c)) {
-    scroll();
-    return;
+  if (isTELEVIDEO) {
+    // KeyPadApplication Modeシーケンス1
+    if (escMode == em::TV1) {
+      escMode = em::TV2;
+      vals[0] = c - ' ' + 1;
+      return;
+    }
+  
+    // KeyPadApplication Modeシーケンス2
+    if (escMode == em::TV2) {
+      vals[1] = c - ' ' + 1;
+      cursorPosition(vals[0], vals[1]); // 指定位置にカーソルを移動
+      clearParams(em::NONE);
+      return;
+    }
+
+    // 改行 (LF / FF)
+    if ((c == 0x0a) || (c == 0x0c)) {
+      scroll();
+      return;
+    }
+  
+    // 垂直TAB (VT)
+    if (c == 0x0b) {
+      cursorUp(1);
+      return;
+    }
+  
+    // 画面消去
+    if (c == 0x1a) {
+      eraseInDisplay(2);
+      setCursorToHome();
+      return;
+    }
+  } else {
+    // 改行 (LF / VT / FF)
+    if ((c == 0x0a) || (c == 0x0b) || (c == 0x0c)) {
+      scroll();
+      return;
+    }
   }
 
   // 復帰 (CR)
@@ -1360,6 +1450,10 @@ void setMode(int16_t *vals, int16_t nVals) {
         // LNM (Line Feed / New Line Mode)
         lineMode(true);
         break;
+      case 99:
+        // TELEVIDEO
+        isTELEVIDEO = true;
+        break;
       default:
         DebugSerial.print(F("Unimplement: setMode "));
         DebugSerial.println(String(vals[i], DEC));
@@ -1372,6 +1466,13 @@ void setMode(int16_t *vals, int16_t nVals) {
 void decSetMode(int16_t *vals, int16_t nVals) {
   for (int16_t i = 0; i < nVals; i++) {
     switch (vals[i]) {
+      case 3:
+        // DECCOLM (Select 80 or 132 Columns per Page): カラムサイズ変更
+        scrMode = sm::NORMAL; // 53 文字モードへ
+        initScreen();
+        resetToInitialState();
+        setCursorToHome();
+        break;
       case 5:
         // DECSCNM (Screen Mode): 画面反転モード
         screenMode(true);
@@ -1400,6 +1501,10 @@ void resetMode(int16_t *vals, int16_t nVals) {
         // LNM (Line Feed / New Line Mode)
         lineMode(false);
         break;
+      case 99:
+        // TELEVIDEO
+        isTELEVIDEO = false;
+        break;
       default:
         DebugSerial.print(F("Unimplement: resetMode "));
         DebugSerial.println(String(vals[i], DEC));
@@ -1412,6 +1517,13 @@ void resetMode(int16_t *vals, int16_t nVals) {
 void decResetMode(int16_t *vals, int16_t nVals) {
   for (int16_t i = 0; i < nVals; i++) {
     switch (vals[i]) {
+      case 3:
+        // DECCOLM (Select 80 or 132 Columns per Page): カラムサイズ変更
+        scrMode = sm::WIDE; // 80 文字モードへ
+        initScreen();
+        resetToInitialState();
+        setCursorToHome();
+        break;
       case 5:
         // DECSCNM (Screen Mode): 画面反転モード
         screenMode(false);
@@ -1732,6 +1844,7 @@ void unknownSequence(em m, char c) {
 // タイマーハンドラ
 void handle_timer() {
   canShowCursor = true;
+  randomizeR(); // Z80 の Refresh Register に乱数を書き込む
 }
 
 // Play Tone
@@ -1757,11 +1870,43 @@ void playBeep(const uint16_t Number, const uint8_t ToneNo, const uint16_t Durati
   delay(20);
 }
 
+// スクリーン情報の初期化
+void initScreen() {
+  // 座標やサイズのプレ計算
+  if (scrMode == sm::WIDE) {
+    CH_W        = WIDE_CH_W;               // フォント横サイズ
+    CH_H        = WIDE_CH_H;               // フォント縦サイズ
+    SC_W        = WIDE_SC_W;               // キャラクタスクリーン横サイズ
+    SC_H        = WIDE_SC_H;               // キャラクタスクリーン縦サイズ
+    fontTop = (uint8_t*)font4x8tt + 3;
+    isGradientBold = true;
+  } else {
+    CH_W        = NORM_CH_W;               // フォント横サイズ
+    CH_H        = NORM_CH_H;               // フォント縦サイズ
+    SC_W        = NORM_SC_W;               // キャラクタスクリーン横サイズ
+    SC_H        = NORM_SC_H;               // キャラクタスクリーン縦サイズ
+    fontTop = (uint8_t*)font6x8tt + 3;
+    isGradientBold = false;
+  } 
+  SCSIZE      = SC_W * SC_H;        // キャラクタスクリーンサイズ
+  SP_W        = SC_W * CH_W;        // ピクセルスクリーン横サイズ
+  SP_H        = SC_H * CH_H;        // ピクセルスクリーン縦サイズ
+  MAX_CH_X    = CH_W - 1;           // フォント最大横位置
+  MAX_CH_Y    = CH_H - 1;           // フォント最大縦位置
+  MAX_SC_X    = SC_W - 1;           // キャラクタスクリーン最大横位置
+  MAX_SC_Y    = SC_H - 1;           // キャラクタスクリーン最大縦位置
+  MAX_SP_X    = SP_W - 1;           // ピクセルスクリーン最大横位置
+  MAX_SP_Y    = SP_H - 1;           // ピクセルスクリーン最大縦位置
+  MARGIN_LEFT = (RSP_W - SP_W) / 2; // 左マージン
+  MARGIN_TOP  = (RSP_H - SP_H) / 2; // 上マージン
+  M_BOTTOM = MAX_SC_Y;
+}
+
 // セットアップ
 void setup() {
   pinMode(LED, OUTPUT);
   digitalWrite(LED, LOW);
-  Wire.begin( );    // Define(SDA, SCL)
+  Wire.begin();    // Define(SDA, SCL)
   DebugSerial.begin(SERIALSPD);
   delay(500);
   xQueue = xQueueCreate( QUEUE_LENGTH, sizeof( uint8_t ) );
@@ -1784,7 +1929,7 @@ void setup() {
   lcd.setRotation(1);
   lcd.setColorDepth(16);
 
-  fontTop = (uint8_t*)font6x8tt + 3;
+  initScreen();
   resetToInitialState();
   setCursorToHome();
 
