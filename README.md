@@ -20,9 +20,7 @@ RunCPM - Z80 CP/M 2.2 emulator <https://github.com/MockbaTheBorg/RunCPM><br>
 * [SDdFatライブラリ](https://github.com/greiman/SdFat "Title") (2.0.4で動作確認をしました。)
 * [LovyanGFXライブラリ](https://github.com/lovyan03/LovyanGFX "Title")
 * [Seeed_Arduino_RTC ライブラリ](https://github.com/Seeed-Studio/Seeed_Arduino_RTC "Title")
-* USBキーボード
-* USB Type-C の変換コネクタ
-* [M5Stack用カード型キーボードユニット](https://www.switch-science.com/catalog/5689/ "Title")
+* USBキーボード + USB Type-C の変換コネクタ or [M5Stack用カード型キーボードユニット](https://www.switch-science.com/catalog/5689/ "Title")
 * microSD カード
 <br>
 
