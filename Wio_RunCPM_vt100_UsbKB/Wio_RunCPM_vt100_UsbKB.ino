@@ -4,6 +4,8 @@
 /*                                                          */
 /*   Wio_RunCPM_vt100_UsbKB                                 */
 /*     https://github.com/robo8080/Wio_RunCPM_vt100_UsbKB   */
+/*   Wio_RunCPM_vt100_CardKB                                */
+/*     https://github.com/robo8080/Wio_RunCPM_vt100_CardKB  */
 /*                                                          */
 /*   RunCPM - Z80 CP/M 2.2 emulator                         */
 /*     https://github.com/MockbaTheBorg/RunCPM              */
@@ -12,33 +14,73 @@
 /*                                                          */
 /************************************************************/
 
+#include <Arduino.h>
+#include <SPI.h>
+
 //------VT100_WT---------------------------------------------------------
 
-#include <Arduino.h>
 #include <Seeed_Arduino_FreeRTOS.h>
 // https://github.com/Seeed-Studio/Seeed_Arduino_FreeRTOS
-#include <SPI.h>
 #include <LovyanGFX.hpp>
 // https://github.com/lovyan03/LovyanGFX
 #include <SAMD51_InterruptTimer.h>
 // https://github.com/Dennis-van-Gils/SAMD51_InterruptTimer
-#include <Reset.h>
-#include <KeyboardController.h>
 
 //------RunCPM-----------------------------------------------------------
 
-#include "globals.h"
 #include <SdFat.h>
 // https://github.com/greiman/SdFat
 #include "RTC_SAMD51.h"
 // https://github.com/Seeed-Studio/Seeed_Arduino_RTC
 #include "DateTime.h"
 
-#include "hardware/wioterm.h"
-#include "abstraction_arduino.h"
+//------Settings---------------------------------------------------------
 
-// Serial port speed
-#define SERIALSPD 9600
+// フォント: 53 Columns (font: 6x8)
+//#include <font6x8tt.h>            // 6x8 ドットフォント (TTBASIC 付属)
+//#include "font6x8e200.h"          // 6x8 ドットフォント (SHARP PC-E200 風)
+//#include "font6x8e500.h"          // 6x8 ドットフォント (SHARP PC-E500 風)
+#include "font6x8sc1602b.h"       // 6x8 ドットフォント (SUNLIKE SC1602B 風)
+#define NORM_CH_W     6           // フォント横サイズ
+#define NORM_CH_H     8           // フォント縦サイズ
+#define NORM_SC_W     52          // キャラクタスクリーン横サイズ (<= 53)
+#define NORM_SC_H     29          // キャラクタスクリーン縦サイズ (<= 30)
+
+// フォント: 80 Columns (font: 4x8)
+#include "font4x8yk.h"            // 4x8 ドットフォント
+#define WIDE_CH_W     4           // フォント横サイズ
+#define WIDE_CH_H     8           // フォント縦サイズ
+#define WIDE_SC_W     80          // キャラクタスクリーン横サイズ (<= 80)
+#define WIDE_SC_H     29          // キャラクタスクリーン縦サイズ (<= 30)
+
+// スクリーン管理用
+#define RSP_W         320         // 実ピクセルスクリーン横サイズ
+#define RSP_H         240         // 実ピクセルスクリーン縦サイズ
+
+// 色
+#define FORE_COLOR    clWhite     // 初期前景色
+#define BACK_COLOR    clBlue      // 初期背景色
+#define CURSOR_COLOR  clWhite     // カーソル色
+
+// エスケープシーケンス
+#define USE_EGR                   // EGR 拡張
+
+// キーボードタイプ
+#define USE_USBKB                 // USB Keyboard を使う
+//#define USE_CARDKB                // CardKB を使う
+
+//-----------------------------------------------------------------------
+
+#if defined board_esp32
+#undef USE_CARDKB
+#endif
+
+// ヘッダファイル
+#include "globals.h"
+
+// Delays for LED blinking
+#define sDELAY 50
+#define DELAY 100
 
 // PUN: device configuration
 #ifdef USE_PUN
@@ -52,52 +94,40 @@ File lst_dev;
 int lst_open = FALSE;
 #endif
 
+// Board definitions go into the "hardware" folder, if you use a board different than the
+// Arduino DUE, choose/change a file from there and replace arduino/due.h here
+#include "hardware/arduino/wioterm.h"
+
+#include "host.h"
+#include "abstraction_arduino.h"
 #include "ram.h"
 #include "console.h"
 #include "cpu.h"
 #include "disk.h"
-#include "host.h"
 #include "cpm.h"
 #ifdef CCP_INTERNAL
 #include "ccp.h"
 #endif
 
-//------Settings---------------------------------------------------------
-
-// フォント
-//#include <font6x8tt.h>            // 6x8 ドットフォント (TTBASIC 付属)
-//#include "font6x8e200.h"          // 6x8 ドットフォント (SHARP PC-E200 風)
-//#include "font6x8e500.h"          // 6x8 ドットフォント (SHARP PC-E500 風)
-#include "font6x8sc1602b.h"       // 6x8 ドットフォント (SUNLIKE SC1602B 風)
-
-// フォント管理用
-#define CH_W          6           // フォント横サイズ
-#define CH_H          8           // フォント縦サイズ
-
-// スクリーン管理用
-#define RSP_W         320         // 実ピクセルスクリーン横サイズ
-#define RSP_H         240         // 実ピクセルスクリーン縦サイズ
-#define SC_W          52          // キャラクタスクリーン横サイズ (<= 53)
-#define SC_H          29          // キャラクタスクリーン縦サイズ (<= 30)
-
-// 色
-#define FORE_COLOR    clWhite     // 初期前景色
-#define BACK_COLOR    clBlue      // 初期背景色
-#define CURSOR_COLOR  clWhite     // カーソル色
-
-// エスケープシーケンス
-#define USE_EGR                   // EGR 拡張
-
-// スピーカー制御用ピン
-#define SPK_PIN       WIO_BUZZER  // Wio Terminal
-
-//-----------------------------------------------------------------------
+// キーボード制御用
+#ifdef USE_CARDKB
+#include <Wire.h>
+#else
+#include <KeyboardController.h>
+USBHost usb;
+KeyboardController keyboard(usb);
+#endif
 
 // 交換
 #define swap(a, b) { uint16_t t = a; a = b; b = t; }
 
 // シリアル
+#ifdef USE_CARDKB
+#define DebugSerial Serial
+#else
 #define DebugSerial Serial1
+#endif
+#define SERIALSPD 115200
 
 // LED 制御用ピン
 /*
@@ -106,6 +136,12 @@ int lst_open = FALSE;
   #define LED_03  D4
   #define LED_04  D5
 */
+
+// スピーカー制御用ピン
+#define SPK_PIN       WIO_BUZZER  // Wio Terminal
+
+// キュー
+#define QUEUE_LENGTH 100
 
 // 文字アトリビュート用
 struct TATTR {
@@ -162,8 +198,9 @@ struct TMODE {
   bool Reserved12 : 1; // 12:
   bool CrLf : 1;       // 20: LNM (Line feed new line mode)
   bool Reserved33 : 1; // 33:
-  bool Reserved34 : 1; // 34:
-  uint8_t Reverse : 2;
+  bool UndelineCursor : 1; // 34: WYULCURM (Undeline Cursor Mode)
+  bool TeleVideo : 1; // 99: TeleVideo Mode
+  uint8_t Reverse : 1;
 };
 
 union MODE {
@@ -174,7 +211,7 @@ union MODE {
 struct TMODE_EX {
   bool Reserved1 : 1;     // 1 DECCKM (Cursor Keys Mode)
   bool Reserved2 : 1;     // 2 DECANM (ANSI/VT52 Mode)
-  bool Reserved3 : 1;     // 3 DECCOLM (Column Mode)
+  bool Cols132 : 1;       // 3 DECCOLM (Column Mode)
   bool Reserved4 : 1;     // 4 DECSCLM (Scrolling Mode)
   bool ScreenReverse : 1; // 5 DECSCNM (Screen Mode)
   bool Reserved6 : 1;     // 6 DECOM (Origin Mode)
@@ -189,19 +226,6 @@ union MODE_EX {
   struct TMODE_EX Flgs;
 };
 
-// 座標やサイズのプレ計算
-PROGMEM const uint16_t SCSIZE      = SC_W * SC_H;        // キャラクタスクリーンサイズ
-PROGMEM const uint16_t SP_W        = SC_W * CH_W;        // ピクセルスクリーン横サイズ
-PROGMEM const uint16_t SP_H        = SC_H * CH_H;        // ピクセルスクリーン縦サイズ
-PROGMEM const uint16_t MAX_CH_X    = CH_W - 1;           // フォント最大横位置
-PROGMEM const uint16_t MAX_CH_Y    = CH_H - 1;           // フォント最大縦位置
-PROGMEM const uint16_t MAX_SC_X    = SC_W - 1;           // キャラクタスクリーン最大横位置
-PROGMEM const uint16_t MAX_SC_Y    = SC_H - 1;           // キャラクタスクリーン最大縦位置
-PROGMEM const uint16_t MAX_SP_X    = SP_W - 1;           // ピクセルスクリーン最大横位置
-PROGMEM const uint16_t MAX_SP_Y    = SP_H - 1;           // ピクセルスクリーン最大縦位置
-PROGMEM const uint16_t MARGIN_LEFT = (RSP_W - SP_W) / 2; // 左マージン
-PROGMEM const uint16_t MARGIN_TOP  = (RSP_H - SP_H) / 2; // 上マージン
-
 // 色
 PROGMEM const uint8_t clBlack   = 0;
 PROGMEM const uint8_t clRed     = 1;
@@ -214,25 +238,42 @@ PROGMEM const uint8_t clWhite   = 7;
 
 // デフォルト
 PROGMEM const uint8_t defaultMode = 0b00001000;
-PROGMEM const uint16_t defaultModeEx = 0b0000000001000000;
+PROGMEM const uint16_t defaultModeEx = 0b0000000001000100;
 PROGMEM const union ATTR defaultAttr = {0b00000000};
 PROGMEM const union COLOR defaultColor = {(BACK_COLOR << 4) | FORE_COLOR};
 
 // スクロール有効行
 uint16_t M_TOP    = 0;        // スクロール行上限
-uint16_t M_BOTTOM = MAX_SC_Y; // スクロール行下限
+uint16_t M_BOTTOM;            // スクロール行下限
 
 // フォント先頭アドレス
 uint8_t* fontTop;
 
 // バッファ
-uint8_t screen[SCSIZE];       // スクリーンバッファ
-uint8_t attrib[SCSIZE];       // 文字アトリビュートバッファ
-uint8_t colors[SCSIZE];       // カラーアトリビュートバッファ
-uint8_t tabs[SC_W];           // タブ位置バッファ
+uint8_t screen[WIDE_SC_W * WIDE_SC_H];       // スクリーンバッファ
+uint8_t attrib[WIDE_SC_W * WIDE_SC_H];       // 文字アトリビュートバッファ
+uint8_t colors[WIDE_SC_W * WIDE_SC_H];       // カラーアトリビュートバッファ
+uint8_t tabs[WIDE_SC_W];                     // タブ位置バッファ
+
+// スクリーンプレ計算用
+uint16_t CH_W;                // フォント横サイズ
+uint16_t CH_H;                // フォント縦サイズ
+uint16_t SC_W;                // キャラクタスクリーン横サイズ
+uint16_t SC_H;                // キャラクタスクリーン縦サイズ
+uint16_t SCSIZE;              // キャラクタスクリーンサイズ
+uint16_t SP_W;                // ピクセルスクリーン横サイズ
+uint16_t SP_H;                // ピクセルスクリーン縦サイズ
+uint16_t MAX_CH_X;            // フォント最大横位置
+uint16_t MAX_CH_Y;            // フォント最大縦位置
+uint16_t MAX_SC_X;            // キャラクタスクリーン最大横位置
+uint16_t MAX_SC_Y;            // キャラクタスクリーン最大縦位置
+uint16_t MAX_SP_X;            // ピクセルスクリーン最大横位置
+uint16_t MAX_SP_Y;            // ピクセルスクリーン最大縦位置
+uint16_t MARGIN_LEFT;         // 左マージン
+uint16_t MARGIN_TOP;          // 上マージン
 
 // 状態
-PROGMEM enum class em {NONE,  ES, CSI, CSI2, LSC, G0S, G1S, EGR};
+PROGMEM enum class em {NONE,  ES, CSI, CSI2, LSC, G0S, G1S, TV1, TV2, EGR};
 em escMode = em::NONE;         // エスケープシーケンスモード
 bool isShowCursor = false;     // カーソル表示中か？
 bool canShowCursor = false;    // カーソル表示可能か？
@@ -240,10 +281,43 @@ bool lastShowCursor = false;   // 前回のカーソル表示状態
 bool hasParam = false;         // <ESC> [ がパラメータを持っているか？
 bool isNegative = false;       // パラメータにマイナス符号が付いているか？
 bool isDECPrivateMode = false; // DEC Private Mode (<ESC> [ ?)
+bool isGradientBold = false;
 union MODE mode = {defaultMode};
 union MODE_EX mode_ex = {defaultModeEx};
 
-/********************************************
+// コマンドの長さ
+PROGMEM const int CMD_LEN = 4;
+
+// 5 方向スイッチとユーザー定義ボタン
+enum WIO_SW {SW_UP, SW_DOWN, SW_RIGHT, SW_LEFT, SW_PRESS};
+enum WIO_BTN {BT_A, BT_B, BT_C};
+PROGMEM const int SW_PORT[5] = {WIO_5S_UP, WIO_5S_DOWN, WIO_5S_RIGHT, WIO_5S_LEFT, WIO_5S_PRESS};
+PROGMEM const int BTN_PORT[3] = {WIO_KEY_A, WIO_KEY_B, WIO_KEY_C};
+bool prev_sw[5] = {false, false, false, false, false};
+bool prev_btn[3] = {false, false, false};
+
+#ifdef USE_CARDKB
+/*** CardKB *********************************
+  キーボードと Wio Terminal のボタンとスイッチの対応
+  +-------------+--------------+-----------+
+  | キーボード  | Wio Terminal |  ESC SEQ  |
+  +-------------+--------------+-----------+
+  | [fn] 3      | WIO_KEY_C    | 0x83      |
+  | [fn] 4      | WIO_KEY_B    | 0x84      |
+  | [fn] 5      | WIO_KEY_A    | 0x85      |
+  | [UP]        | WIO_5S_UP    | 0xB5      |
+  | [DOWN]      | WIO_5S_DOWN  | 0xB6      |
+  | [RIGHT]     | WIO_5S_RIGHT | 0xB7      |
+  | [LEFT]      | WIO_5S_LEFT  | 0xB4      |
+  | [ENTER]     | WIO_5S_PRESS | [CR]      |
+  +-------------+--------------+-----------+
+********************************************/
+// スイッチ情報
+PROGMEM const char SW_CMD[5][CMD_LEN] = {"\xb5", "\xb6", "\xb7", "\xb4", "\r"};
+// ボタン情報
+PROGMEM const char BTN_CMD[3][CMD_LEN] = {"\x85", "\x84", "\x83"};
+#else
+/*** USB Keyboard ***************************
   キーボードと Wio Terminal のボタンとスイッチの対応
   +-------------+--------------+-----------+
   | キーボード  | Wio Terminal |  ESC SEQ  |
@@ -258,30 +332,19 @@ union MODE_EX mode_ex = {defaultModeEx};
   | [ENTER]     | WIO_5S_PRESS | [CR]      |
   +-------------+--------------+-----------+
 ********************************************/
-
-// コマンドの長さ
-PROGMEM const int CMD_LEN = 4;
+// スイッチ情報
+PROGMEM const char SW_CMD[5][CMD_LEN] = {"\eOA", "\eOB", "\eOC", "\eOD", "\r"};
+// ボタン情報
+PROGMEM const char BTN_CMD[3][CMD_LEN] = {"\eOR", "\eOQ", "\eOP"};
+// 特殊キー情報
+enum SP_KEY {KY_HOME, KY_INS, KY_DEL, KY_END, KY_PGUP, KY_PGDOWN};
+PROGMEM const char KEY_CMD[6][CMD_LEN] = {"\eO1", "\eO2", "\x7F", "\eO4", "\eO5", "\eO6"};
+#endif
 
 // キー
 int key;
 void printKey();
 void printSpecialKey(const char *str);
-
-// スイッチ情報
-enum WIO_SW {SW_UP, SW_DOWN, SW_RIGHT, SW_LEFT, SW_PRESS};
-PROGMEM const int SW_PORT[5] = {WIO_5S_UP, WIO_5S_DOWN, WIO_5S_RIGHT, WIO_5S_LEFT, WIO_5S_PRESS};
-PROGMEM const char SW_CMD[5][CMD_LEN] = {"\eOA", "\eOB", "\eOC", "\eOD", "\r"};
-bool prev_sw[5] = {false, false, false, false, false};
-
-// ボタン情報
-enum WIO_BTN {BT_A, BT_B, BT_C};
-PROGMEM const int BTN_PORT[3] = {WIO_KEY_A, WIO_KEY_B, WIO_KEY_C};
-PROGMEM const char BTN_CMD[3][CMD_LEN] = {"\eOR", "\eOQ", "\eOP"};
-bool prev_btn[3] = {false, false, false};
-
-// 特殊キー情報
-enum SP_KEY {KY_HOME, KY_INS, KY_DEL, KY_END, KY_PGUP, KY_PGDOWN};
-PROGMEM const char KEY_CMD[6][CMD_LEN] = {"\eO1", "\eO2", "\x7F", "\eO4", "\eO5", "\eO6"};
 
 // 前回位置情報
 int16_t p_XP = 0;
@@ -307,21 +370,35 @@ int16_t vals[10] = {};
 bool needCursorUpdate = false;
 bool hideCursor = false;
 
-// キュー
-#define QUEUE_LENGTH 100
-QueueHandle_t xQueue;
-
 // LCD 制御用
 static LGFX lcd;
 
-// USB 制御用
-USBHost usb;
-
-// キーボード制御用
-KeyboardController keyboard(usb);
-
 // -----------------------------------------------------------------------------
 
+// 輝度を落とした色(太字表示に使用)の生成
+static inline uint16_t RGB565dark(uint16_t col) {
+  uint16_t r = 0;
+  uint16_t g = 0;
+  uint16_t b = 0;
+  uint16_t res = 0;
+
+#if 1
+  // 輝度75%
+  r = ((col & 0xf800) >> 11) * 3 / 4;
+  g = ((col & 0x07e0) >> 5) * 3 / 4;
+  b =  (col & 0x001f) * 3 / 4;
+#else
+  // 輝度66%
+  r = ((col & 0xf800) >> 11) * 2 / 3;
+  g = ((col & 0x07e0) >> 5) * 2 / 3;
+  b =  (col & 0x001f) * 2 / 3;
+#endif
+  res = (r << 11) | (g << 5) | b;
+
+  return res;
+}
+
+#ifndef USE_CARDKB
 // イベント: キーを押した
 void keyPressed() {
   //printKey();
@@ -387,6 +464,8 @@ void printKey() {
     }
   }
 }
+#endif
+
 
 // 特殊キーの送信
 void printSpecialKey(const char *str) {
@@ -406,6 +485,7 @@ void sc_updateChar(uint16_t x, uint16_t y) {
   l.value = colors[idx];             // カラーアトリビュートの取得
   uint16_t fore = aColors[l.Color.Foreground | (a.Bits.Blink << 3)];
   uint16_t back = aColors[l.Color.Background | (a.Bits.Blink << 3)];
+  uint16_t foreDark = RGB565dark(fore);
 
   if (a.Bits.Reverse) swap(fore, back);
   if (mode_ex.Flgs.ScreenReverse) swap(fore, back);
@@ -415,7 +495,14 @@ void sc_updateChar(uint16_t x, uint16_t y) {
     bool prev = (a.Bits.Underline && (i == MAX_CH_Y));
     for (int j = 0; j < CH_W; j++) {
       bool pset = ((*ptr) & (0x80 >> j));
-      buf[cnt] = (pset || prev) ? fore : back;
+      if (isGradientBold) {
+        if (pset)
+          buf[cnt] = fore;
+        else
+          buf[cnt] = (prev) ? foreDark : back;
+      } else {
+        buf[cnt] = (pset || prev) ? fore : back;
+      }
       if (a.Bits.Bold)
         prev = pset;
       cnt++;
@@ -427,13 +514,23 @@ void sc_updateChar(uint16_t x, uint16_t y) {
 
 // カーソルの描画
 void drawCursor(uint16_t x, uint16_t y) {
-  uint16_t buflen = CH_W * CH_H;
-  uint16_t buf[buflen];
+  if (mode.Flgs.UndelineCursor) {
+    uint16_t buflen = CH_W;
+    uint16_t buf[buflen];
 
-  lcd.setAddrWindow(MARGIN_LEFT + x * CH_W, MARGIN_TOP + y * CH_H, CH_W, CH_H);
-  for (uint16_t i = 0; i < buflen; i++)
-    buf[i] = aColors[CURSOR_COLOR];
-  lcd.pushPixels(buf, buflen, true);
+    lcd.setAddrWindow(MARGIN_LEFT + x * CH_W, MARGIN_TOP + y * CH_H + CH_H - 1, CH_W, 1);
+    for (uint16_t i = 0; i < buflen; i++)
+      buf[i] = aColors[CURSOR_COLOR];
+    lcd.pushPixels(buf, buflen, true);
+  } else {
+    uint16_t buflen = CH_W * CH_H;
+    uint16_t buf[buflen];
+
+    lcd.setAddrWindow(MARGIN_LEFT + x * CH_W, MARGIN_TOP + y * CH_H, CH_W, CH_H);
+    for (uint16_t i = 0; i < buflen; i++)
+      buf[i] = aColors[CURSOR_COLOR];
+    lcd.pushPixels(buf, buflen, true);
+  }
 }
 
 // カーソルの表示
@@ -469,9 +566,9 @@ void sc_updateLine(uint16_t ln) {
   union ATTR a;
   union COLOR l;
 
-  for (uint16_t i = 0; i < CH_H; i++) {        // 1文字高さ分ループ
+  for (uint16_t i = 0; i < CH_H; i++) {            // 1文字高さ分ループ
     cnt = 0;
-    for (uint16_t clm = 0; clm < SC_W; clm++) { // 横文字数分ループ
+    for (uint16_t clm = 0; clm < SC_W; clm++) {    // 横文字数分ループ
       idx = ln * SC_W + clm;
       c  = screen[idx];                            // キャラクタの取得
       a.value = attrib[idx];                       // 文字アトリビュートの取得
@@ -508,8 +605,8 @@ void initCursorAndAttribute() {
   for (int i = 0; i < SC_W; i += 8)
     tabs[i] = 1;
   setTopAndBottomMargins(1, SC_H);
-  mode.value = defaultMode;
-  mode_ex.value = defaultModeEx;
+  //mode.value = defaultMode;
+  //mode_ex.value = defaultModeEx;
 }
 
 // 一行スクロール
@@ -592,9 +689,14 @@ void printChar(char c) {
             restoreCursor();
             break;
           case '=':
-            // DECKPAM (Keypad Application Mode): アプリケーションキーパッドモードにセット
-            keypadApplicationMode();
-            break;
+            if (mode.Flgs.TeleVideo) {
+              escMode = em::TV1;
+              return;
+            } else {
+              // DECKPAM (Keypad Application Mode): アプリケーションキーパッドモードにセット
+              keypadApplicationMode();
+              break;
+            }
           case '>':
             // DECKPNM (Keypad Numeric Mode): 数値キーパッドモードにセット
             keypadNumericMode();
@@ -623,6 +725,11 @@ void printChar(char c) {
             // RIS (Reset To Initial State): リセット
             resetToInitialState();
             break;
+          case 'T':
+            if (mode.Flgs.TeleVideo) {
+              eraseInLine(0);
+              break;
+            }
           default:
             // 未確認のシーケンス
             unknownSequence(escMode, c);
@@ -819,8 +926,8 @@ void printChar(char c) {
     return;
   }
 
-  // "%" EGR シーケンス
 #ifdef USE_EGR
+  // "%" EGR シーケンス
   if (escMode == em::EGR) {
     if (isdigit(c) || c == '-') {
       // [パラメータ]
@@ -955,10 +1062,46 @@ void printChar(char c) {
   }
 #endif
 
-  // 改行 (LF / VT / FF)
-  if ((c == 0x0a) || (c == 0x0b) || (c == 0x0c)) {
-    scroll();
-    return;
+  if (mode.Flgs.TeleVideo) {
+    // TeleVideo シーケンス 1
+    if (escMode == em::TV1) {
+      escMode = em::TV2;
+      vals[0] = c - ' ' + 1;
+      return;
+    }
+
+    // TeleVideo シーケンス 2
+    if (escMode == em::TV2) {
+      vals[1] = c - ' ' + 1;
+      cursorPosition(vals[0], vals[1]); // 指定位置にカーソルを移動
+      clearParams(em::NONE);
+      return;
+    }
+
+    // 改行 (LF / FF)
+    if ((c == 0x0a) || (c == 0x0c)) {
+      scroll();
+      return;
+    }
+
+    // 垂直TAB (VT)
+    if (c == 0x0b) {
+      cursorUp(1);
+      return;
+    }
+
+    // 画面消去
+    if (c == 0x1a) {
+      eraseInDisplay(2);
+      setCursorToHome();
+      return;
+    }
+  } else {
+    // 改行 (LF / VT / FF)
+    if ((c == 0x0a) || (c == 0x0b) || (c == 0x0c)) {
+      scroll();
+      return;
+    }
   }
 
   // 復帰 (CR)
@@ -1286,6 +1429,25 @@ void lineMode(bool m) {
   mode.Flgs.CrLf = m;
 }
 
+// WYULCURM (Underline Cursor Mode)
+void underlinecursorMode(bool m) {
+  mode.Flgs.UndelineCursor = m;
+}
+
+// : TeleVideo モード
+void televideoMode(bool m) {
+  mode.Flgs.TeleVideo = m;
+}
+
+
+// DECCOLM (Select 80 or 132 Columns per Page): カラムサイズ変更
+void columnMode(bool m) {
+  mode_ex.Flgs.Cols132 = m;
+  initScreen();
+  resetToInitialState();
+  setCursorToHome();
+}
+
 // DECSCNM (Screen Mode): 画面反転モード
 void screenMode(bool m) {
   mode_ex.Flgs.ScreenReverse = m;
@@ -1315,6 +1477,14 @@ void setMode(int16_t *vals, int16_t nVals) {
         // LNM (Line Feed / New Line Mode)
         lineMode(true);
         break;
+      case 34:
+        // WYULCURM (Underline Cursor Mode)
+        underlinecursorMode(true);
+        break;
+      case 99:
+        // TELEVIDEO
+        televideoMode(true);
+        break;
       default:
         DebugSerial.print(F("Unimplement: setMode "));
         DebugSerial.println(String(vals[i], DEC));
@@ -1327,6 +1497,10 @@ void setMode(int16_t *vals, int16_t nVals) {
 void decSetMode(int16_t *vals, int16_t nVals) {
   for (int16_t i = 0; i < nVals; i++) {
     switch (vals[i]) {
+      case 3:
+        // DECCOLM (Select 80 or 132 Columns per Page): カラムサイズ変更
+        columnMode(true); // 53 文字モードへ (本来は 132 文字モード)
+        break;
       case 5:
         // DECSCNM (Screen Mode): 画面反転モード
         screenMode(true);
@@ -1355,6 +1529,14 @@ void resetMode(int16_t *vals, int16_t nVals) {
         // LNM (Line Feed / New Line Mode)
         lineMode(false);
         break;
+      case 34:
+        // WYULCURM (Underline Cursor Mode)
+        underlinecursorMode(false);
+        break;
+      case 99:
+        // TELEVIDEO
+        televideoMode(false);
+        break;
       default:
         DebugSerial.print(F("Unimplement: resetMode "));
         DebugSerial.println(String(vals[i], DEC));
@@ -1367,6 +1549,10 @@ void resetMode(int16_t *vals, int16_t nVals) {
 void decResetMode(int16_t *vals, int16_t nVals) {
   for (int16_t i = 0; i < nVals; i++) {
     switch (vals[i]) {
+      case 3:
+        // DECCOLM (Select 80 or 132 Columns per Page): カラムサイズ変更
+        columnMode(false); // 80 文字モードへ
+        break;
       case 5:
         // DECSCNM (Screen Mode): 画面反転モード
         screenMode(false);
@@ -1392,7 +1578,6 @@ void selectGraphicRendition(int16_t *vals, int16_t nVals) {
   uint8_t seq = 0;
   uint16_t r, g, b, cIdx;
   bool isFore = true;
-
   for (int16_t i = 0; i < nVals; i++) {
     int16_t v = vals[i];
     switch (seq) {
@@ -1688,6 +1873,7 @@ void unknownSequence(em m, char c) {
 // タイマーハンドラ
 void handle_timer() {
   canShowCursor = true;
+  randomizeR(); // Z80 の Refresh Register に乱数を書き込む
 }
 
 // Play Tone
@@ -1713,9 +1899,44 @@ void playBeep(const uint16_t Number, const uint8_t ToneNo, const uint16_t Durati
   delay(20);
 }
 
+// スクリーン情報の初期化
+void initScreen() {
+  // 座標やサイズのプレ計算
+  if (mode_ex.Flgs.Cols132) {
+    CH_W        = NORM_CH_W;               // フォント横サイズ
+    CH_H        = NORM_CH_H;               // フォント縦サイズ
+    SC_W        = NORM_SC_W;               // キャラクタスクリーン横サイズ
+    SC_H        = NORM_SC_H;               // キャラクタスクリーン縦サイズ
+    fontTop = (uint8_t*)font6x8tt + 3;
+    isGradientBold = false;
+  } else {
+    CH_W        = WIDE_CH_W;               // フォント横サイズ
+    CH_H        = WIDE_CH_H;               // フォント縦サイズ
+    SC_W        = WIDE_SC_W;               // キャラクタスクリーン横サイズ
+    SC_H        = WIDE_SC_H;               // キャラクタスクリーン縦サイズ
+    fontTop = (uint8_t*)font4x8tt + 3;
+    isGradientBold = true;
+  }
+  SCSIZE      = SC_W * SC_H;        // キャラクタスクリーンサイズ
+  SP_W        = SC_W * CH_W;        // ピクセルスクリーン横サイズ
+  SP_H        = SC_H * CH_H;        // ピクセルスクリーン縦サイズ
+  MAX_CH_X    = CH_W - 1;           // フォント最大横位置
+  MAX_CH_Y    = CH_H - 1;           // フォント最大縦位置
+  MAX_SC_X    = SC_W - 1;           // キャラクタスクリーン最大横位置
+  MAX_SC_Y    = SC_H - 1;           // キャラクタスクリーン最大縦位置
+  MAX_SP_X    = SP_W - 1;           // ピクセルスクリーン最大横位置
+  MAX_SP_Y    = SP_H - 1;           // ピクセルスクリーン最大縦位置
+  MARGIN_LEFT = (RSP_W - SP_W) / 2; // 左マージン
+  MARGIN_TOP  = (RSP_H - SP_H) / 2; // 上マージン
+  M_BOTTOM = MAX_SC_Y;
+}
+
 // セットアップ
 void setup() {
-  DebugSerial.begin(115200);
+  pinMode(LED, OUTPUT);
+  digitalWrite(LED, LOW);
+  Wire.begin();    // Define(SDA, SCL)
+  DebugSerial.begin(SERIALSPD);
   delay(500);
   xQueue = xQueueCreate( QUEUE_LENGTH, sizeof( uint8_t ) );
 
@@ -1731,24 +1952,18 @@ void setup() {
     digitalWrite(LED_04, LOW);
   */
 
-  pinMode(D0, OUTPUT);
-  digitalWrite(D0, LOW);
-
   // LCD の初期化
   lcd.init();
   lcd.startWrite();
   lcd.setRotation(1);
   lcd.setColorDepth(16);
 
-  fontTop = (uint8_t*)font6x8tt + 3;
+  initScreen();
   resetToInitialState();
   setCursorToHome();
 
   // RTC の初期化
   rtc.begin();
-
-  // カーソル用タイマーの設定
-  TC.startTimer(200000, handle_timer); // 200ms
 
   // スイッチの初期化
   for (int i = 0; i < 5; i++)
@@ -1758,15 +1973,20 @@ void setup() {
   for (int i = 0; i < 3; i++)
     pinMode(BTN_PORT[i], INPUT_PULLUP);
 
+  // カーソル用タイマーの設定
+  TC.startTimer(200000, handle_timer); // 200ms
+
   // ブザーの初期化
   pinMode(SPK_PIN, OUTPUT);
 
+#ifndef USE_CARDKB
   // キーボードの初期化
   if (usb.Init())
     DebugSerial.println(F("USB host did not start."));
   delay(20);
   digitalWrite(PIN_USB_HOST_ENABLE, LOW);
   digitalWrite(OUTPUT_CTR_5V, HIGH);
+#endif
 
 #ifdef DEBUGLOG
   _sys_deletefile((uint8 *)LogName);
@@ -1775,16 +1995,25 @@ void setup() {
   _clrscr();
   _puts("CP/M 2.2 Emulator v" VERSION " by Marcelo Dantas\r\n");
   _puts("Arduino read/write support by Krzysztof Klis\r\n");
-  _puts("      Build " __DATE__ " - " __TIME__ "\r\n");
+  _puts("      Built " __DATE__ " - " __TIME__ "\r\n");
   _puts("--------------------------------------------\r\n");
   _puts("CCP: " CCPname "    CCP Address: 0x");
   _puthex16(CCPaddr);
   _puts("\r\nBOARD: ");
   _puts(BOARD);
+#ifdef USE_CARDKB
+  _puts(" (CardKB)");
+#else
+  _puts(" (USB KB)");
+#endif
   _puts("\r\n");
 
+#if defined board_esp32
+  _puts("Initializing SPI.\r\n");
+  SPI.begin(SPIINIT);
+#endif
   _puts("Initializing SD card.\r\n");
-  if (SD.begin(SDINIT, SD_SCK_MHZ(50))) {
+  if (SD.begin(SDINIT)) {
     if (VersionCCP >= 0x10 || SD.exists(CCPname)) {
       while (true) {
         _puts(CCPHEAD);
@@ -1823,11 +2052,25 @@ void setup() {
 
 // ループ
 void loop() {
+  digitalWrite(LED, HIGH ^ LEDinv);
+  delay(DELAY);
+  digitalWrite(LED, LOW ^ LEDinv);
+  delay(DELAY);
+  digitalWrite(LED, HIGH ^ LEDinv);
+  delay(DELAY);
+  digitalWrite(LED, LOW ^ LEDinv);
+  delay(DELAY * 4);
+}
+
+// ループ
+void loop2() {
   // RTC
   now = rtc.now();
 
+#ifndef USE_CARDKB
   // USB
   usb.Task();
+#endif
 
   // スイッチ
   for (int i = 0; i < 5; i++) {
@@ -1855,9 +2098,11 @@ void loop() {
     }
   }
 
+#ifndef USE_CARDKB
   // カーソル表示処理
   if (canShowCursor || needCursorUpdate) {
     dispCursor(needCursorUpdate);
     needCursorUpdate = false;
   }
+#endif
 }

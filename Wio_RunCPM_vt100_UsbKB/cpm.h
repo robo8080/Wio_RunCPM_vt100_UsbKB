@@ -773,9 +773,6 @@ void _Bdos(void) {
 	case 231:
 		HL = hostbdos(DE);
 		break;
-		/*
-		C = 232 (E8h) : ESP32 specific BDOS call
-		*/
 #if defined board_wioterm
   case 42: // 42 (2Ah): get date
     switch (DE >> 14) {
@@ -832,10 +829,16 @@ void _Bdos(void) {
       rtc.adjust(now);
     }
     break;
-	case 232:
-		HL = wiobdos(DE);
-		break;
+    /*
+    C = 232 (E8h) : Wio Terminal specific BDOS call
+    */
+  case 232:
+    HL = wiobdos(DE);
+    break;
 #endif
+		/*
+		C = 232 (E8h) : ESP32 specific BDOS call
+		*/
 #if defined board_esp32
 	case 232:
 		HL = esp32bdos(DE);
