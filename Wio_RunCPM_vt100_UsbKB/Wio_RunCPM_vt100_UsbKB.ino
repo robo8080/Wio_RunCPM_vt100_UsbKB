@@ -66,8 +66,8 @@
 #define USE_EGR                   // EGR 拡張
 
 // キーボードタイプ
-#define USE_USBKB                 // USB Keyboard を使う  
-//#define USE_CARDKB                // CardKB を使う
+//#define USE_USBKB                 // USB Keyboard を使う  
+#define USE_CARDKB                // CardKB を使う
 
 //-----------------------------------------------------------------------
 
@@ -198,8 +198,9 @@ struct TMODE {
   bool Reserved12 : 1; // 12:
   bool CrLf : 1;       // 20: LNM (Line feed new line mode)
   bool Reserved33 : 1; // 33:
-  bool Reserved34 : 1; // 34:
-  uint8_t Reverse : 2;
+  bool UndelineCursor : 1; // 34: WYULCURM (Undeline Cursor Mode)
+  bool TeleVideo : 1; // 99: TeleVideo Mode
+  uint8_t Reverse : 1;
 };
 
 union MODE {
@@ -283,7 +284,6 @@ bool hasParam = false;         // <ESC> [ がパラメータを持っている�
 bool isNegative = false;       // パラメータにマイナス符号が付いているか？
 bool isDECPrivateMode = false; // DEC Private Mode (<ESC> [ ?)
 bool isGradientBold = false;
-bool isTELEVIDEO = false;
 union MODE mode = {defaultMode};
 union MODE_EX mode_ex = {defaultModeEx};
 
@@ -516,13 +516,23 @@ void sc_updateChar(uint16_t x, uint16_t y) {
 
 // カーソルの描画
 void drawCursor(uint16_t x, uint16_t y) {
-  uint16_t buflen = CH_W * CH_H;
-  uint16_t buf[buflen];
-
-  lcd.setAddrWindow(MARGIN_LEFT + x * CH_W, MARGIN_TOP + y * CH_H, CH_W, CH_H);
-  for (uint16_t i = 0; i < buflen; i++)
-    buf[i] = aColors[CURSOR_COLOR];
-  lcd.pushPixels(buf, buflen, true);
+  if (mode.Flgs.UndelineCursor) {
+    uint16_t buflen = CH_W;
+    uint16_t buf[buflen];
+  
+    lcd.setAddrWindow(MARGIN_LEFT + x * CH_W, MARGIN_TOP + y * CH_H + CH_H - 1, CH_W, 1);
+    for (uint16_t i = 0; i < buflen; i++)
+      buf[i] = aColors[CURSOR_COLOR];
+    lcd.pushPixels(buf, buflen, true);
+  } else {
+    uint16_t buflen = CH_W * CH_H;
+    uint16_t buf[buflen];
+  
+    lcd.setAddrWindow(MARGIN_LEFT + x * CH_W, MARGIN_TOP + y * CH_H, CH_W, CH_H);
+    for (uint16_t i = 0; i < buflen; i++)
+      buf[i] = aColors[CURSOR_COLOR];
+    lcd.pushPixels(buf, buflen, true);
+  }
 }
 
 // カーソルの表示
@@ -597,8 +607,8 @@ void initCursorAndAttribute() {
   for (int i = 0; i < SC_W; i += 8)
     tabs[i] = 1;
   setTopAndBottomMargins(1, SC_H);
-  mode.value = defaultMode;
-  mode_ex.value = defaultModeEx;
+//mode.value = defaultMode;
+//mode_ex.value = defaultModeEx;
 }
 
 // 一行スクロール
@@ -681,7 +691,7 @@ void printChar(char c) {
             restoreCursor();
             break;
           case '=':
-            if (isTELEVIDEO) {
+            if (mode.Flgs.TeleVideo) {
               escMode = em::TV1;
               return;         
             } else {
@@ -718,7 +728,7 @@ void printChar(char c) {
             resetToInitialState();
             break;
           case 'T':
-            if (isTELEVIDEO) {
+            if (mode.Flgs.TeleVideo) {
               eraseInLine(0);
               break;
             }
@@ -1054,15 +1064,15 @@ void printChar(char c) {
   }
 #endif
 
-  if (isTELEVIDEO) {
-    // KeyPadApplication Modeシーケンス1
+  if (mode.Flgs.TeleVideo) {
+    // TeleVideo シーケンス 1
     if (escMode == em::TV1) {
       escMode = em::TV2;
       vals[0] = c - ' ' + 1;
       return;
     }
   
-    // KeyPadApplication Modeシーケンス2
+    // TeleVideo シーケンス 2
     if (escMode == em::TV2) {
       vals[1] = c - ' ' + 1;
       cursorPosition(vals[0], vals[1]); // 指定位置にカーソルを移動
@@ -1421,6 +1431,16 @@ void lineMode(bool m) {
   mode.Flgs.CrLf = m;
 }
 
+// WYULCURM (Underline Cursor Mode)
+void underlinecursorMode(bool m) {
+  mode.Flgs.UndelineCursor = m;
+}
+
+// : TeleVideo モード
+void televideoMode(bool m) {
+  mode.Flgs.TeleVideo = m;
+}
+
 // DECSCNM (Screen Mode): 画面反転モード
 void screenMode(bool m) {
   mode_ex.Flgs.ScreenReverse = m;
@@ -1450,9 +1470,13 @@ void setMode(int16_t *vals, int16_t nVals) {
         // LNM (Line Feed / New Line Mode)
         lineMode(true);
         break;
+      case 34:
+        // WYULCURM (Underline Cursor Mode)
+        underlinecursorMode(true);
+        break;
       case 99:
         // TELEVIDEO
-        isTELEVIDEO = true;
+        televideoMode(true);
         break;
       default:
         DebugSerial.print(F("Unimplement: setMode "));
@@ -1501,9 +1525,13 @@ void resetMode(int16_t *vals, int16_t nVals) {
         // LNM (Line Feed / New Line Mode)
         lineMode(false);
         break;
+      case 34:
+        // WYULCURM (Underline Cursor Mode)
+        underlinecursorMode(false);
+        break;
       case 99:
         // TELEVIDEO
-        isTELEVIDEO = false;
+        televideoMode(false);
         break;
       default:
         DebugSerial.print(F("Unimplement: resetMode "));
