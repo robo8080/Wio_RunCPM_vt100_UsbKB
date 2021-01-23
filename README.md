@@ -5,7 +5,7 @@ Wio Terminalで動く超小型CP/Mマシン
 ![画像2](images/image2.png)<br><br>
 
 "VT100 Terminal Emulator"と"Z80 CP/M 2.2 emulator"を組み合わせた、Wio Terminalで動く超小型CP/Mマシンです。<br>
-(注意：ディスプレイが1行53文字のなので、1行80文字を前提にしているプログラムは表示が崩れます。)<br><br>
+(注意：ディスプレイが1行53文字なので、1行80文字を前提にしているプログラムは表示が崩れます。但し、極小フォントを使って1行80文字のモードに切り替える事は可能です。)<br><br>
 ベースにしたオリジナルはこちら。<br>
 VT100 Terminal Emulator for Wio Terminal <https://github.com/ht-deko/vt100_wt><br>
 RunCPM - Z80 CP/M 2.2 emulator <https://github.com/MockbaTheBorg/RunCPM><br>
