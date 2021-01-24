@@ -54,14 +54,14 @@ RunCPM 用のディスク (microSD) は別途用意する必要があります(�
 ---
 
 ### 参考資料 ###
-1. RunCPM用のディスクの作り方などは、DEKO（@ht_deko）さんのこちらの記事を参照してください。<br>
+1. RunCPM用のディスクの作り方などは、DEKO（@ht_deko）さんのこちらの記事を参照してください。
 * [RunCPM (Z80 CP/M 2.2 エミュレータ)](https://ht-deko.com/arduino/runcpm.html "Title")<br><br>
-2. Turbo Pascalについて<br>
+2. Turbo Pascalについて
 * [CP/M 8266](https://github.com/SmallRoomLabs/cpm8266 "Title") の disks/c に有るものなどが使える。
 * [Turbo Pascal 3.0.x の使い方](https://qiita.com/ht_deko/items/ec212f5cc17cbe5f718b "Title")
 * [Turbo Pascal 3.0.x のスクリーン設定](https://qiita.com/ht_deko/items/0d8976801c02ec685bd6 "Title")
 * [Turbo Pascal 3.0.x のキーボードショートカット](https://qiita.com/ht_deko/items/86ddf71d0c509125b7ba "Title")<br><br>
-3. Rogueについて<br>
+3. Rogueについて
 * Rogue のアーカイブ <https://britzl.github.io/roguearchive/>
 * CP/M 版をダウンロード＆解凍して、その中のアーカイブも解凍して、ROGUE.COM は削除して、ROGUE.CPM を ROGUE .COM にリネームする。<br><br>
 
