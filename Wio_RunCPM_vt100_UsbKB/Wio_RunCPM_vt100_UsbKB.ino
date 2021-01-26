@@ -1113,11 +1113,13 @@ void printChar(char c) {
   // バックスペース (BS)
   if ((c == 0x08) || (c == 0x7f)) {
     cursorBackward(1);
-    uint16_t idx = YP * SC_W + XP;
-    screen[idx] = 0;
-    attrib[idx] = 0;
-    colors[idx] = cColor.value;
-    sc_updateChar(XP, YP);
+    if (!mode.Flgs.TeleVideo) {
+      uint16_t idx = YP * SC_W + XP;
+      screen[idx] = 0;
+      attrib[idx] = 0;
+      colors[idx] = cColor.value;
+      sc_updateChar(XP, YP);
+    }
     return;
   }
 
