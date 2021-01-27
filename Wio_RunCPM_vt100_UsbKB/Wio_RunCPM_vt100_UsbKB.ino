@@ -2016,6 +2016,11 @@ void setup() {
 #endif
   _puts("Initializing SD card.\r\n");
   if (SD.begin(SDINIT)) {
+
+    // AUTOEXEC
+    if (SD.exists("/A/0/AUTOEXEC.SUB"))
+      printSpecialKey("SUBMIT AUTOEXEC\r\n");
+
     if (VersionCCP >= 0x10 || SD.exists(CCPname)) {
       while (true) {
         _puts(CCPHEAD);
