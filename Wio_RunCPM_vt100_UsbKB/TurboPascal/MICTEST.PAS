@@ -6,10 +6,10 @@ var
   v: Integer;  
 begin
   pinMode(WIO_MIC, INPUT);
-  while True do
-    begin
-       v = analogRead(WIO_MIC);
-       Writeln(v);
-       Delay2(200);
-    end;
+  repeat
+    v := analogRead(WIO_MIC);
+    Writeln(v);
+    Delay2(200);
+  until KeyPressed;
 end.
+
