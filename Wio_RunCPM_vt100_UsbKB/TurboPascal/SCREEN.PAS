@@ -38,4 +38,3 @@ begin
   else
     Write(#$1b'[?3h'); { 53 Cols }
 end.
-

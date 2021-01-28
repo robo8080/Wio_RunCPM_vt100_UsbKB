@@ -24,6 +24,6 @@ begin
     getDate(Year, Month, Day);
     getTime(Hour, Minute, Second);
     Writeln(Year, '/', Month, '/', Day, ' ', Hour, ':', Minute, ':', Second);
-    Delay(10000);
+    Delay2(10000);
   until KeyPressed;
 end.

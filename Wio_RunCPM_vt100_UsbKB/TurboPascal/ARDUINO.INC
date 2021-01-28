@@ -8,6 +8,11 @@ const
   LOW  = 0;
   HIGH = 1;
 
+  procedure Delay2(v: Integer);
+  begin
+    Delay(Trunc(v * 1.75)); { Wio Terminal 120MHz }  
+  end;
+
   procedure pinMode(pin, mode: Byte);
   begin
     Bdos(220, (pin shl 8) + mode);
