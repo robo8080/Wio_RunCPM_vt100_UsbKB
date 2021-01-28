@@ -9,8 +9,16 @@ const
   HIGH = 1;
 
   procedure Delay2(v: Integer);
+  const
+    WIO_FREQ = 12; { Wio Terminal 120MHz (= Frequency / 10) }
+  var
+    i: Integer;
   begin
-    Delay(Trunc(v * 1.75)); { Wio Terminal 120MHz }  
+    if v < 1638 then
+      i := v * WIO_FREQ div 7
+    else
+      i := v div 10 * WIO_FREQ div 7 * 10;
+    Delay(i);
   end;
 
   procedure pinMode(pin, mode: Byte);
