@@ -19,44 +19,44 @@ var
   end; { Func }
 
 begin
-  HideCursor(True);
+  HideCursor(True); 
   InitGraph;
   CA_InitPlot;
   CA_SetFlipMode(True);
   for I := 0 to 240 do
-  begin
-    LowerHorizon[I] := maxint;
-    UpperHorizon[I] := -maxint
-  end;
-  for Iz := 0 to 20 do
-  begin
-    Z := Zmin + (Zmax - Zmin) * Iz / 20;
-    LastOk := false;
-    for Ix := 0 to 200 do
     begin
-      X := Xmin + (Xmax - Xmin) * Ix / 200;
-      I := Ix + 2 * (20 - Iz);
-      Px := 10 * I;
-      Py := round(Yscale * Func(X, Z)) + 30 * Iz + 600;
-      Ok := false;
-      if Py < LowerHorizon[I] then
-      begin
-        LowerHorizon[I] := Py;
-        Ok := true
-      end;
-      if Py > UpperHorizon[I] then
-      begin
-        UpperHorizon[I] := Py;
-        Ok := true
-      end;
-      if Ok and LastOk then
-        CA_DrawAbsolute(Px div 8, Py div 8)
-      else
-        CA_MoveAbsolute(Px div 8, Py div 8);
-      LastOk := Ok
-    end
-  end;
+      LowerHorizon[I] := maxint;
+      UpperHorizon[I] := -maxint
+    end;
+  for Iz := 0 to 20 do
+    begin
+      Z := Zmin + (Zmax - Zmin) * Iz / 20;
+      LastOk := false;
+      for Ix := 0 to 200 do
+        begin
+          X := Xmin + (Xmax - Xmin) * Ix / 200;
+          I := Ix + 2 * (20 - Iz);
+          Px := 10 * I;
+          Py := round(Yscale * Func(X, Z)) + 30 * Iz + 600;
+          Ok := false;
+          if Py < LowerHorizon[I] then
+            begin
+              LowerHorizon[I] := Py;
+              Ok := true
+            end;
+          if Py > UpperHorizon[I] then
+            begin
+              UpperHorizon[I] := Py;
+              Ok := true
+            end;
+          if Ok and LastOk then
+            CA_DrawAbsolute(Px div 8, Py div 8)
+          else
+            CA_MoveAbsolute(Px div 8, Py div 8);
+          LastOk := Ok
+        end;
+    end;
   HideCursor(False);
-  Readln:
+  Readln;
   ClrScr;
 end.

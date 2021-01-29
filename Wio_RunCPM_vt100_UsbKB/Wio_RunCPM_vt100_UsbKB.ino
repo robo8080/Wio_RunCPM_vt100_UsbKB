@@ -71,8 +71,14 @@
 
 //-----------------------------------------------------------------------
 
-#if defined board_esp32
+#ifdef USE_USBKB
 #undef USE_CARDKB
+#endif
+
+#ifdef USE_CARDKB
+#define KBD_TYPE  "CardKB"
+#else
+#define KBD_TYPE  "USB KB"
 #endif
 
 // ヘッダファイル
@@ -2003,12 +2009,9 @@ void setup() {
   _puthex16(CCPaddr);
   _puts("\r\nBOARD: ");
   _puts(BOARD);
-#ifdef USE_CARDKB
-  _puts(" (CardKB)");
-#else
-  _puts(" (USB KB)");
-#endif
-  _puts("\r\n");
+  _puts(" (" KBD_TYPE "/");
+  _puts((char*)String(F_CPU / 1000000L, DEC).c_str());
+  _puts("MHz)\r\n");
 
 #if defined board_esp32
   _puts("Initializing SPI.\r\n");
