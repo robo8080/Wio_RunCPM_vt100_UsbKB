@@ -16,7 +16,14 @@ RTC_SAMD51 rtc;
 DateTime now;
 
 uint16 wiobdos(uint16 dmaaddr) {
-	return(0x00);
+  uint8 func  = LOW_REGISTER(dmaaddr);
+  uint8 param = HIGH_REGISTER(dmaaddr);
+
+  switch (func) {
+
+    default:
+      return (0x0000);
+  }
 }
 
 #endif
