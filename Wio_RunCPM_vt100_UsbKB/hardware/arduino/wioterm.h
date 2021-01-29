@@ -15,7 +15,7 @@ QueueHandle_t xQueue;
 RTC_SAMD51 rtc;
 DateTime now;
 
-uint8 wiobdos(uint16 dmaaddr) {
+uint16 wiobdos(uint16 dmaaddr) {
 	return(0x00);
 }
 
