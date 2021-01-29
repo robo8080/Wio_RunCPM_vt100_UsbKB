@@ -8,18 +8,23 @@ const
   LOW  = 0;
   HIGH = 1;
 
-  procedure Delay2(v: Integer);
-  const
-    WIO_FREQ = 12; { Wio Terminal 120MHz (= Frequency / 10) }
-  var
-    i: Integer;
+  function systemFrequency: Integer;
   begin
+    systemFrequency := BDosHL(231, 1); { hostbdos } 
+  end; {of function systemFrequency}
+
+  procedure Delay2(v: Integer);
+  var
+    i, Freq: Integer;
+  begin
+    { The formula is for Wio Terminal }
+    Freq := systemFrequency div 10;
     if v < 1638 then
-      i := v * WIO_FREQ div 7
+      i := v * Freq div 7
     else
-      i := v div 10 * WIO_FREQ div 7 * 10;
+      i := v div 10 * Freq div 7 * 10;
     Delay(i);
-  end;
+  end; {of procedure Delay2}
 
   procedure pinMode(pin, mode: Byte);
   begin
