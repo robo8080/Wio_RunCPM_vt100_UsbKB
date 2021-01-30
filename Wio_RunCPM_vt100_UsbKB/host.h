@@ -3,8 +3,9 @@
 
 uint16 hostbdos(uint16 dmaaddr) {
 
-  uint8 func  = LOW_REGISTER(dmaaddr);
-  uint8 param = HIGH_REGISTER(dmaaddr);
+  uint16 i = WORD16(dmaaddr);
+  uint8 func = _RamRead(i);
+  ++i;
 
   switch (func) {
     case 1:
