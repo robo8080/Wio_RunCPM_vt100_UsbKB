@@ -774,22 +774,25 @@ void _Bdos(void) {
 		HL = hostbdos(DE);
 		break;
 #if defined board_wioterm
-    /*
-    C = 232 (E8h) : Wio Terminal specific BDOS call
-    */
-  case 232:
-    HL = wiobdos(DE);
-    break;
+		/*
+		C = 232 (E8h) : Wio Terminal specific BDOS call
+		*/
+	case 232:
+		HL = wiobdos(DE);
+		break;
 #endif
+#if defined board_esp32
 		/*
 		C = 232 (E8h) : ESP32 specific BDOS call
 		*/
-#if defined board_esp32
 	case 232:
 		HL = esp32bdos(DE);
 		break;
 #endif
 #if defined board_stm32
+		/*
+		C = 232 (E8h) : STM32 specific BDOS call
+		*/
 	case 232:
 		HL = stm32bdos(DE);
 		break;
