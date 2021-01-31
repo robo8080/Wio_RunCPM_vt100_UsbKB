@@ -9,8 +9,11 @@ const
   HIGH = 1;
 
   function systemFrequency: Integer;
+  var
+    func: Byte;
   begin
-    systemFrequency := BDosHL(231, 1); { hostbdos } 
+    func := 1;
+    systemFrequency := BDosHL(231, Addr(func)); { hostbdos }
   end; {of function systemFrequency}
 
   procedure Delay2(v: Integer);
@@ -58,42 +61,68 @@ const
 
   procedure getDate(var y: Integer; var m, d: byte);
   var
+    func: array [0..1] of Byte;
     HL: Integer;
   begin
-    y  := BDosHL($2A, 0 shl 14);
-    HL := BDosHL($2A, 1 shl 14);
+    func[0] := $2A; { Func }
+    func[1] := 0;   { Param }
+    y  := BDosHL(232, Addr(func[0])); { boardbdos }
+    func[1] := 1;   { Param }
+    HL := BDosHL(232, Addr(func[0])); { boardbdos }
     m  := HL shr 8;
     d  := HL and $FF;
   end; {of procedure getDate}
 
   function getDayOfTheWeek: byte;
+  var
+    func: array [0..1] of Byte;
   begin
-    getDayOfTheWeek := BDosHL($2A, 2 shl 14);
+    func[0] := $2A; { Func }
+    func[1] := 2;   { Param }
+    getDayOfTheWeek := BDosHL(232, Addr(func[0]));
   end; {of function getDayOfTheWeek}
 
   procedure setDate(y: Integer; m, d: byte);
   var
-    HL: Integer;
+    func: array [0..4] of Byte;
   begin
-    HL := BDosHL($2B, (0 shl 14) or y);
-    HL := BDosHL($2B, (1 shl 14) or (m shl 8) or d);
+    func[0] := $2B;       { Func }
+    func[1] := 0;         { Param }
+    func[2] := y shr 8;   { Data }
+    func[3] := y and $FF; { Data }
+    BDos(232, Addr(func[0]));
+    func[1] := 1;         { Param }
+    func[2] := m;         { Data }
+    func[3] := d;         { Data }
+    BDos(232, Addr(func[0]));
   end; {of procedure setDate}
 
   procedure getTime(var h, m, s: byte);
   var
+    func: array [0..1] of Byte;
     HL: Integer;
   begin
-    HL := BDosHL($2C, 0 shl 14);
+    func[0] := $2C; { Func }
+    func[1] := 0;   { Param }
+    HL := BDosHL(232, Addr(func[0]));
     h  := HL shr 8;
     m  := HL and $FF;
-    HL := BDosHL($2C, 1 shl 14);
+    func[1] := 1;   { Param }
+    HL := BDosHL(232, Addr(func[0]));
     s  := HL shr 8;
   end; {of procedure getTime}
 
   procedure setTime(h, m, s: byte);
   var
-    HL: Integer;
+    func: array [0..4] of Byte;
   begin
-    HL := BDosHL($2D, (0 shl 14) or (h shl 8) or m);
-    HL := BDosHL($2D, (1 shl 14) or (s shl 8));
+    func[0] := $2D; { Func }
+    func[1] := 0;   { Param }
+    func[2] := h;   { Data }
+    func[3] := m;   { Data }
+    BDos(232, Addr(func[0]));
+    func[1] := 1;   { Param }
+    func[2] := s;   { Data }
+    func[3] := 0;   { Data }
+    BDos(232, Addr(func[0]));
   end; {of procedure setTime}
