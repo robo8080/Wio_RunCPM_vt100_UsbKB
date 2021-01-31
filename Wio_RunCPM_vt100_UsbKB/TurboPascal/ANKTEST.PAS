@@ -3,7 +3,6 @@ const
   LINESTR = '+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+';
   TBL: string[16] = '0123456789ABCDEF';
 var
-  ch: Char;
   c, r, n: Integer;
 begin
   ClrScr;
