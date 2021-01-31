@@ -36,4 +36,5 @@ begin
     Writeln;
   end;
   Writeln(LINESTR);
+  Bdos(230, $7F);
 end.
