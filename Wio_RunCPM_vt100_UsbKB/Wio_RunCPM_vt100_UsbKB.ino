@@ -66,11 +66,29 @@
 #define USE_EGR                   // EGR 拡張
 
 // キーボードタイプ
-#define USE_USBKB                 // USB Keyboard を使う
-//#define USE_CARDKB                // CardKB を使う
+//#define USE_USBKB                 // USB Keyboard を使う
+#define USE_CARDKB                // CardKB を使う
 
 //-----------------------------------------------------------------------
 
+// スクリーンプレ計算用
+uint16_t CH_W;                // フォント横サイズ
+uint16_t CH_H;                // フォント縦サイズ
+uint16_t SC_W;                // キャラクタスクリーン横サイズ
+uint16_t SC_H;                // キャラクタスクリーン縦サイズ
+uint16_t SCSIZE;              // キャラクタスクリーンサイズ
+uint16_t SP_W;                // ピクセルスクリーン横サイズ
+uint16_t SP_H;                // ピクセルスクリーン縦サイズ
+uint16_t MAX_CH_X;            // フォント最大横位置
+uint16_t MAX_CH_Y;            // フォント最大縦位置
+uint16_t MAX_SC_X;            // キャラクタスクリーン最大横位置
+uint16_t MAX_SC_Y;            // キャラクタスクリーン最大縦位置
+uint16_t MAX_SP_X;            // ピクセルスクリーン最大横位置
+uint16_t MAX_SP_Y;            // ピクセルスクリーン最大縦位置
+uint16_t MARGIN_LEFT;         // 左マージン
+uint16_t MARGIN_TOP;          // 上マージン
+
+// キーボード
 #ifdef USE_USBKB
 #undef USE_CARDKB
 #endif
@@ -260,23 +278,6 @@ uint8_t screen[WIDE_SC_W * WIDE_SC_H];       // スクリーンバッファ
 uint8_t attrib[WIDE_SC_W * WIDE_SC_H];       // 文字アトリビュートバッファ
 uint8_t colors[WIDE_SC_W * WIDE_SC_H];       // カラーアトリビュートバッファ
 uint8_t tabs[WIDE_SC_W];                     // タブ位置バッファ
-
-// スクリーンプレ計算用
-uint16_t CH_W;                // フォント横サイズ
-uint16_t CH_H;                // フォント縦サイズ
-uint16_t SC_W;                // キャラクタスクリーン横サイズ
-uint16_t SC_H;                // キャラクタスクリーン縦サイズ
-uint16_t SCSIZE;              // キャラクタスクリーンサイズ
-uint16_t SP_W;                // ピクセルスクリーン横サイズ
-uint16_t SP_H;                // ピクセルスクリーン縦サイズ
-uint16_t MAX_CH_X;            // フォント最大横位置
-uint16_t MAX_CH_Y;            // フォント最大縦位置
-uint16_t MAX_SC_X;            // キャラクタスクリーン最大横位置
-uint16_t MAX_SC_Y;            // キャラクタスクリーン最大縦位置
-uint16_t MAX_SP_X;            // ピクセルスクリーン最大横位置
-uint16_t MAX_SP_Y;            // ピクセルスクリーン最大縦位置
-uint16_t MARGIN_LEFT;         // 左マージン
-uint16_t MARGIN_TOP;          // 上マージン
 
 // 状態
 PROGMEM enum class em {NONE,  ES, CSI, CSI2, LSC, G0S, G1S, TV1, TV2, EGR};
