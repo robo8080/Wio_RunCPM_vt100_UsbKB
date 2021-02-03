@@ -686,6 +686,12 @@ void printChar(char c) {
         // G1 セット シーケンス へ
         clearParams(em::G1S);
         break;
+      case 'G':
+        if (mode.Flgs.ADM3A) {
+          // Set Video Attributes (ADM-3A): 属性変更 シーケンス へ
+          clearParams(em::SVA);
+          break;
+        }
 #ifdef USE_EGR
       case '%':
         // EGR セット シーケンス へ
@@ -705,8 +711,8 @@ void printChar(char c) {
             break;
           case '=':
             if (mode.Flgs.ADM3A) {
-              // Load Cursor Row and Column (ADM-3A): カーソル位置を指定
-              escMode = em::LC1;
+              // Load Cursor Row and Column (ADM-3A): カーソル位置指定 シーケンス へ
+              clearParams(em::LC1);
               return;
             } else {
               // DECKPAM (Keypad Application Mode): アプリケーションキーパッドモードにセット
@@ -725,12 +731,6 @@ void printChar(char c) {
             // NEL (Next Line): 改行、カーソルを次行の最初へ移動
             nextLine();
             break;
-          case 'G':
-            if (mode.Flgs.ADM3A) {
-              // Set Video Attributes (ADM-3A): 属性変更
-              escMode = em::SVA;
-              return;
-            }
           case 'H':
             // HTS (Horizontal Tabulation Set): 現在の桁位置にタブストップを設定
             horizontalTabulationSet();
