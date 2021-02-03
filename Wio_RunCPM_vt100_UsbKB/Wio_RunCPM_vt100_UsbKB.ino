@@ -690,8 +690,10 @@ void printChar(char c) {
         if (mode.Flgs.ADM3A) {
           // Set Video Attributes (ADM-3A): 属性変更 シーケンス へ
           clearParams(em::SVA);
-          break;
+        } else {
+          unknownSequence(escMode, c);
         }
+        break;
 #ifdef USE_EGR
       case '%':
         // EGR セット シーケンス へ
