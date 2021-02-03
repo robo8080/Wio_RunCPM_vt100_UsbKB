@@ -280,7 +280,7 @@ uint8_t colors[WIDE_SC_W * WIDE_SC_H];       // カラーアトリビュート�
 uint8_t tabs[WIDE_SC_W];                     // タブ位置バッファ
 
 // 状態
-PROGMEM enum class em {NONE,  ES, CSI, CSI2, LSC, G0S, G1S, LC1, LC2, EGR};
+PROGMEM enum class em {NONE,  ES, CSI, CSI2, LSC, G0S, G1S, SVA, LC1, LC2, EGR};
 em escMode = em::NONE;         // エスケープシーケンスモード
 bool isShowCursor = false;     // カーソル表示中か？
 bool canShowCursor = false;    // カーソル表示可能か？
@@ -501,7 +501,7 @@ void sc_updateChar(uint16_t x, uint16_t y) {
   for (int i = 0; i < CH_H; i++) {
     bool prev = (a.Bits.Underline && (i == MAX_CH_Y));
     for (int j = 0; j < CH_W; j++) {
-      bool pset = ((*ptr) & (0x80 >> j));
+      bool pset = (a.Bits.Conceal) ? false : ((*ptr) & (0x80 >> j));
       if (isGradientBold) {
         if (pset)
           buf[cnt] = fore;
@@ -582,13 +582,21 @@ void sc_updateLine(uint16_t ln) {
       l.value = colors[idx];                       // カラーアトリビュートの取得
       uint16_t fore = aColors[l.Color.Foreground | (a.Bits.Blink << 3)];
       uint16_t back = aColors[l.Color.Background | (a.Bits.Blink << 3)];
+      uint16_t foreDark = RGB565dark(fore);
       if (a.Bits.Reverse) swap(fore, back);
       if (mode_ex.Flgs.ScreenReverse) swap(fore, back);
       dt = fontTop[c * CH_H + i];                  // 文字内i行データの取得
       bool prev = (a.Bits.Underline && (i == MAX_CH_Y));
       for (uint16_t j = 0; j < CH_W; j++) {
-        bool pset = dt & (0x80 >> j);
-        buf[i & 1][cnt] = (pset || prev) ? fore : back;
+        bool pset = (a.Bits.Conceal) ? false : (dt & (0x80 >> j));
+        if (isGradientBold) {
+          if (pset)
+            buf[i & 1][cnt] = fore;
+          else
+            buf[i & 1][cnt] = (prev) ? foreDark : back;
+        } else {
+          buf[i & 1][cnt] = (pset || prev) ? fore : back;
+        }
         if (a.Bits.Bold)
           prev = pset;
         cnt++;
@@ -717,6 +725,12 @@ void printChar(char c) {
             // NEL (Next Line): 改行、カーソルを次行の最初へ移動
             nextLine();
             break;
+          case 'G':
+            if (mode.Flgs.ADM3A) {
+              // Set Video Attributes (ADM-3A): 属性変更
+              escMode = em::SVA;
+              return;
+            }
           case 'H':
             // HTS (Horizontal Tabulation Set): 現在の桁位置にタブストップを設定
             horizontalTabulationSet();
@@ -1082,6 +1096,13 @@ void printChar(char c) {
     if (escMode == em::LC2) {
       vals[1] = c - ' ' + 1; // 桁位置
       cursorPosition(vals[0], vals[1]); // 指定位置にカーソルを移動
+      clearParams(em::NONE);
+      return;
+    }
+
+    // SVA シーケンス (ADM-3A)
+    if (escMode == em::SVA) {
+      setVideoAttributes(c);
       clearParams(em::NONE);
       return;
     }
@@ -1864,6 +1885,17 @@ void setG0charset(char c) {
 // G1 文字コードの設定
 void setG1charset(char c) {
   DebugSerial.println(F("Unimplement: setG1charset"));
+}
+
+// "G" SVA Sets Sequence
+// -----------------------------------------------------------------------------
+void setVideoAttributes(char c) {
+  uint8_t v = c - '0';
+  cAttr.value = 0;                     // Normal Video
+  if (v & 1) cAttr.Bits.Conceal   = 1; // Invisible
+  if (v & 2) cAttr.Bits.Blink     = 1; // Blink
+  if (v & 4) cAttr.Bits.Reverse   = 1; // Reverse
+  if (v & 8) cAttr.Bits.Underline = 1; // Underline
 }
 
 // Unknown Sequence
