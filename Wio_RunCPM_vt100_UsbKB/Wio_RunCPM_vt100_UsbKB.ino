@@ -223,7 +223,7 @@ struct TMODE {
   bool CrLf : 1;       // 20: LNM (Line feed new line mode)
   bool Reserved33 : 1; // 33:
   bool UndelineCursor : 1; // 34: WYULCURM (Undeline Cursor Mode)
-  bool ADM3A : 1; // 99: ADM-3A (TeleVideo TS803) Mode
+  bool ADM3A : 1; // 99: ADM-3A (/ TeleVideo TS803) Mode
   uint8_t Reverse : 1;
 };
 
@@ -1126,7 +1126,7 @@ void printChar(char c) {
     if (c == 0x7f) {
       return;
     }
-    
+
   } else {
     // バックスペース (BS)
     if ((c == 0x08) || (c == 0x7f)) {
@@ -1138,7 +1138,7 @@ void printChar(char c) {
       sc_updateChar(XP, YP);
       return;
     }
-    
+
     // 改行 (LF / VT / FF)
     if ((c == 0x0a) || (c == 0x0b) || (c == 0x0c)) {
       scroll();
@@ -1512,7 +1512,7 @@ void setMode(int16_t *vals, int16_t nVals) {
         underlinecursorMode(true);
         break;
       case 99:
-        // ADM-3A (TeleVideo TS803)
+        // ADM-3A (ADM-3A Mode)
         adm3aMode(true);
         break;
       default:
@@ -1564,7 +1564,7 @@ void resetMode(int16_t *vals, int16_t nVals) {
         underlinecursorMode(false);
         break;
       case 99:
-        // ADM-3A (TeleVideo TS803)
+        // ADM-3A (ADM-3A Mode)
         adm3aMode(false);
         break;
       default:
