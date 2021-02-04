@@ -47,7 +47,8 @@
 #define NORM_SC_H     29          // キャラクタスクリーン縦サイズ (<= 30)
 
 // フォント: 80 Columns (font: 4x8)
-#include "font4x8yk.h"            // 4x8 ドットフォント
+#include "font4x8yk.h"            // 4x8 ドットフォント (@ykumano)
+//#include "font4x8misaki.h"        // 4x8 ドットフォント (美咲フォント)
 #define WIDE_CH_W     4           // フォント横サイズ
 #define WIDE_CH_H     8           // フォント縦サイズ
 #define WIDE_SC_W     80          // キャラクタスクリーン横サイズ (<= 80)
