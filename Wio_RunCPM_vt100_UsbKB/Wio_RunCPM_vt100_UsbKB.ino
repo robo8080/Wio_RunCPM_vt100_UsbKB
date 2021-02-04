@@ -67,8 +67,8 @@
 #define USE_EGR                   // EGR 拡張
 
 // キーボードタイプ
-#define USE_USBKB                 // USB Keyboard を使う
-//#define USE_CARDKB                // CardKB を使う
+//#define USE_USBKB                 // USB Keyboard を使う
+#define USE_CARDKB                // CardKB を使う
 
 //-----------------------------------------------------------------------
 
@@ -88,6 +88,50 @@ uint16_t MAX_SP_X;            // ピクセルスクリーン最大横位置
 uint16_t MAX_SP_Y;            // ピクセルスクリーン最大縦位置
 uint16_t MARGIN_LEFT;         // 左マージン
 uint16_t MARGIN_TOP;          // 上マージン
+
+// コマンドの長さ
+PROGMEM const int CMD_LEN = 5;
+// スイッチ情報
+PROGMEM const int SW_PORT[5] = {WIO_5S_UP, WIO_5S_DOWN, WIO_5S_RIGHT, WIO_5S_LEFT, WIO_5S_PRESS};
+bool prev_sw[5] = {false, false, false, false, false};
+enum WIO_SW {SW_UP, SW_DOWN, SW_RIGHT, SW_LEFT, SW_PRESS};
+PROGMEM const char SW_CMD[5][CMD_LEN] = {"\eOA", "\eOB", "\eOC", "\eOD", "\r"};
+// ボタン情報
+PROGMEM const int BTN_PORT[3] = {WIO_KEY_A, WIO_KEY_B, WIO_KEY_C};
+bool prev_btn[3] = {false, false, false};
+enum WIO_BTN {BT_A, BT_B, BT_C};
+PROGMEM const char BTN_CMD[3][CMD_LEN] = {"\eOT", "\eOS", "\eOR"};
+// 特殊キー情報
+enum SP_KEY {KY_HOME, KY_INS, KY_DEL, KY_END, KY_PGUP, KY_PGDOWN};
+PROGMEM const char KEY_CMD[7][CMD_LEN] = {"\eO1", "\eO2", "\x7F", "\eO4", "\eO5", "\eO6"};
+
+/*********************************************
+  ・キーボードと Wio Terminal のボタンとスイッチの対応
+  +-------------+--------------+-----------+
+  |  Keyboard   | Wio Terminal |  ESC SEQ  |
+  +-------------+--------------+-----------+
+  | [F3]/[fn] 3 | WIO_KEY_C    | [ESC] O R |
+  | [F4]/[fn] 4 | WIO_KEY_B    | [ESC] O S |
+  | [F5]/[fn] 5 | WIO_KEY_A    | [ESC] O T |
+  | [UP]        | WIO_5S_UP    | [ESC] O A |
+  | [DOWN]      | WIO_5S_DOWN  | [ESC] O B |
+  | [RIGHT]     | WIO_5S_RIGHT | [ESC] O C |
+  | [LEFT]      | WIO_5S_LEFT  | [ESC] O D |
+  | [ENTER]     | WIO_5S_PRESS | [CR]      |
+  +-------------+--------------+-----------+
+  ・特殊キー
+  +-------------+--------------+-----------+
+  |   USB KB    |    CardKB    |  ESC SEQ  |
+  +-------------+--------------+-----------+
+  | [HOME]      | [Fn] ←      | [ESC] O 1 |
+  | [INS]       | [Fn] 1       | [ESC] O 2 |
+  | [DEL]       | [Shift] <x]  | [DEL]     |
+  | [END]       | [Fn] →      | [ESC] O 4 |
+  | [PAGE UP]   | [Fn] ↑      | [ESC] O 5 |
+  | [PAGE DOWN] | [Fn] ↓      | [ESC] O 6 |
+  | [ALT]+[ESC] | [Fn][ESC]    | [ESC] O 7 |
+  +-------------+--------------+-----------+
+*********************************************/
 
 // キーボード
 #ifdef USE_USBKB
@@ -289,65 +333,9 @@ bool lastShowCursor = false;   // 前回のカーソル表示状態
 bool hasParam = false;         // <ESC> [ がパラメータを持っているか？
 bool isNegative = false;       // パラメータにマイナス符号が付いているか？
 bool isDECPrivateMode = false; // DEC Private Mode (<ESC> [ ?)
-bool isGradientBold = false;
+bool isGradientBold = false;   // グラデーションボールド
 union MODE mode = {defaultMode};
 union MODE_EX mode_ex = {defaultModeEx};
-
-// コマンドの長さ
-PROGMEM const int CMD_LEN = 4;
-
-// 5 方向スイッチとユーザー定義ボタン
-enum WIO_SW {SW_UP, SW_DOWN, SW_RIGHT, SW_LEFT, SW_PRESS};
-enum WIO_BTN {BT_A, BT_B, BT_C};
-PROGMEM const int SW_PORT[5] = {WIO_5S_UP, WIO_5S_DOWN, WIO_5S_RIGHT, WIO_5S_LEFT, WIO_5S_PRESS};
-PROGMEM const int BTN_PORT[3] = {WIO_KEY_A, WIO_KEY_B, WIO_KEY_C};
-bool prev_sw[5] = {false, false, false, false, false};
-bool prev_btn[3] = {false, false, false};
-
-#ifdef USE_CARDKB
-/*** CardKB *********************************
-  キーボードと Wio Terminal のボタンとスイッチの対応
-  +-------------+--------------+-----------+
-  | キーボード  | Wio Terminal |  ESC SEQ  |
-  +-------------+--------------+-----------+
-  | [fn] 3      | WIO_KEY_C    | 0x83      |
-  | [fn] 4      | WIO_KEY_B    | 0x84      |
-  | [fn] 5      | WIO_KEY_A    | 0x85      |
-  | [UP]        | WIO_5S_UP    | 0xB5      |
-  | [DOWN]      | WIO_5S_DOWN  | 0xB6      |
-  | [RIGHT]     | WIO_5S_RIGHT | 0xB7      |
-  | [LEFT]      | WIO_5S_LEFT  | 0xB4      |
-  | [ENTER]     | WIO_5S_PRESS | [CR]      |
-  +-------------+--------------+-----------+
-********************************************/
-// スイッチ情報
-PROGMEM const char SW_CMD[5][CMD_LEN] = {"\xb5", "\xb6", "\xb7", "\xb4", "\r"};
-// ボタン情報
-PROGMEM const char BTN_CMD[3][CMD_LEN] = {"\x85", "\x84", "\x83"};
-#else
-/*** USB Keyboard ***************************
-  キーボードと Wio Terminal のボタンとスイッチの対応
-  +-------------+--------------+-----------+
-  | キーボード  | Wio Terminal |  ESC SEQ  |
-  +-------------+--------------+-----------+
-  | [F1]        | WIO_KEY_C    | [ESC] O P |
-  | [F2]        | WIO_KEY_B    | [ESC] O Q |
-  | [F3]        | WIO_KEY_A    | [ESC] O R |
-  | [UP]        | WIO_5S_UP    | [ESC] O A |
-  | [DOWN]      | WIO_5S_DOWN  | [ESC] O B |
-  | [RIGHT]     | WIO_5S_RIGHT | [ESC] O C |
-  | [LEFT]      | WIO_5S_LEFT  | [ESC] O D |
-  | [ENTER]     | WIO_5S_PRESS | [CR]      |
-  +-------------+--------------+-----------+
-********************************************/
-// スイッチ情報
-PROGMEM const char SW_CMD[5][CMD_LEN] = {"\eOA", "\eOB", "\eOC", "\eOD", "\r"};
-// ボタン情報
-PROGMEM const char BTN_CMD[3][CMD_LEN] = {"\eOR", "\eOQ", "\eOP"};
-// 特殊キー情報
-enum SP_KEY {KY_HOME, KY_INS, KY_DEL, KY_END, KY_PGUP, KY_PGDOWN};
-PROGMEM const char KEY_CMD[6][CMD_LEN] = {"\eO1", "\eO2", "\x7F", "\eO4", "\eO5", "\eO6"};
-#endif
 
 // キー
 int key;
@@ -428,13 +416,13 @@ void printKey() {
     int key = keyboard.getOemKey();
     int mod = keyboard.getModifiers();
     switch (key) {
-      case 58: // F1 (Wio Button #3)
+      case 60: // F3 (Wio Button #3)
         printSpecialKey(BTN_CMD[BT_C]);
         break;
-      case 59: // F2 (Wio Button #2)
+      case 61: // F4 (Wio Button #2)
         printSpecialKey(BTN_CMD[BT_B]);
         break;
-      case 60: // F3 (Wio Button #1)
+      case 62: // F5 (Wio Button #1)
         printSpecialKey(BTN_CMD[BT_A]);
         break;
       case 73: // Insert
@@ -659,6 +647,25 @@ void clearParams(em m) {
   memset(vals, 0, sizeof(vals));
   hasParam = false;
   isNegative = false;
+}
+
+int getVowelIndex(char c) {
+  switch (c) {
+    case 'a':
+      return (1);
+    case 'i':
+      return (2);
+    case 'u':
+      return (3);
+    case 'e':
+      return (4);
+    case 'o':
+      return (5);
+    case 'n':
+      return (-1);
+    default:
+      return (0);
+  }
 }
 
 // 文字描画
