@@ -498,6 +498,7 @@ extern void loop2();
 #ifdef USE_CARDKB
 extern bool canShowCursor;    // カーソル表示可能か？
 extern void dispCursor(bool forceupdate);
+extern void printSpecialKey(const char *str);
 static uint8 kbhit_char = 0;
 #endif
 
@@ -511,7 +512,21 @@ int _kbhit(void) {
       kbhit_char = Wire.read();
       switch (kbhit_char)
       {
-      case 0x07:
+      case 0x81:          // Fn-1 (Ctrl+!)
+        printSpecialKey(KEY_CMD[KY_INS]);
+        kbhit_char = 0;
+        break;
+      case 0x83:          // Fn-3 (Ctrl+#)
+        printSpecialKey(BTN_CMD[BT_C]);
+        kbhit_char = 0;
+        break;
+      case 0x84:          // Fn-4 (Ctrl+$)
+        printSpecialKey(BTN_CMD[BT_B]);
+        kbhit_char = 0;
+        break;
+      case 0x85:          // Fn-5 (Ctrl+%)
+        printSpecialKey(BTN_CMD[BT_A]);
+        kbhit_char = 0;
         break;
       case 0x82:          // Fn-2 (Ctrl+@)
       case 0x86:          // Fn-6 (Ctrl+^)
@@ -524,7 +539,40 @@ int _kbhit(void) {
       case 0xa6 ... 0xac: // Fn-Z..M
         kbhit_char = KEY_TBL[kbhit_char - 0x80];
         break;
+      case 0xb4:          // Left
+        printSpecialKey(SW_CMD[SW_LEFT]);
+        kbhit_char = 0;
+        break;
+      case 0xb5:          // Up
+        printSpecialKey(SW_CMD[SW_UP]);
+        kbhit_char = 0;
+        break;
+      case 0xb6:          // Down
+        printSpecialKey(SW_CMD[SW_DOWN]);
+        kbhit_char = 0;
+        break;
+      case 0xb7:          // Right
+        printSpecialKey(SW_CMD[SW_RIGHT]);
+        kbhit_char = 0;
+        break;
+      case 0x98:          // Fn-Left
+        printSpecialKey(KEY_CMD[KY_HOME]);
+        kbhit_char = 0;
+        break;
+      case 0x99:          // Fn-Up
+        printSpecialKey(KEY_CMD[KY_PGUP]);
+        kbhit_char = 0;
+        break;
+      case 0xA4:          // Fn-Down
+        printSpecialKey(KEY_CMD[KY_PGDOWN]);
+        kbhit_char = 0;
+        break;
+      case 0xA5:          // Fn-Right
+        printSpecialKey(KEY_CMD[KY_END]);
+        kbhit_char = 0;
+        break;
       default:
+        if (kbhit_char >= 0x80) kbhit_char = 0;
         break;
       }
     }
