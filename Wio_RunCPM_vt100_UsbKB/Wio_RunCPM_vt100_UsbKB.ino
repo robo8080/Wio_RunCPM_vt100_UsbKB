@@ -47,7 +47,8 @@
 #define NORM_SC_H     29          // キャラクタスクリーン縦サイズ (<= 30)
 
 // フォント: 80 Columns (font: 4x8)
-#include "font4x8yk.h"            // 4x8 ドットフォント
+//#include "font4x8misaki.h"        // 4x8 ドットフォント (美咲フォント)
+#include "font4x8yk.h"            // 4x8 ドットフォント (@ykumano)
 #define WIDE_CH_W     4           // フォント横サイズ
 #define WIDE_CH_H     8           // フォント縦サイズ
 #define WIDE_SC_W     80          // キャラクタスクリーン横サイズ (<= 80)
@@ -71,6 +72,24 @@
 
 //-----------------------------------------------------------------------
 
+// スクリーンプレ計算用
+uint16_t CH_W;                // フォント横サイズ
+uint16_t CH_H;                // フォント縦サイズ
+uint16_t SC_W;                // キャラクタスクリーン横サイズ
+uint16_t SC_H;                // キャラクタスクリーン縦サイズ
+uint16_t SCSIZE;              // キャラクタスクリーンサイズ
+uint16_t SP_W;                // ピクセルスクリーン横サイズ
+uint16_t SP_H;                // ピクセルスクリーン縦サイズ
+uint16_t MAX_CH_X;            // フォント最大横位置
+uint16_t MAX_CH_Y;            // フォント最大縦位置
+uint16_t MAX_SC_X;            // キャラクタスクリーン最大横位置
+uint16_t MAX_SC_Y;            // キャラクタスクリーン最大縦位置
+uint16_t MAX_SP_X;            // ピクセルスクリーン最大横位置
+uint16_t MAX_SP_Y;            // ピクセルスクリーン最大縦位置
+uint16_t MARGIN_LEFT;         // 左マージン
+uint16_t MARGIN_TOP;          // 上マージン
+
+// キーボード
 #ifdef USE_USBKB
 #undef USE_CARDKB
 #endif
@@ -205,7 +224,7 @@ struct TMODE {
   bool CrLf : 1;       // 20: LNM (Line feed new line mode)
   bool Reserved33 : 1; // 33:
   bool UndelineCursor : 1; // 34: WYULCURM (Undeline Cursor Mode)
-  bool TeleVideo : 1; // 99: TeleVideo Mode
+  bool ADM3A : 1; // 99: ADM-3A (/ TeleVideo TS803) Mode
   uint8_t Reverse : 1;
 };
 
@@ -261,25 +280,8 @@ uint8_t attrib[WIDE_SC_W * WIDE_SC_H];       // 文字アトリビュートバ�
 uint8_t colors[WIDE_SC_W * WIDE_SC_H];       // カラーアトリビュートバッファ
 uint8_t tabs[WIDE_SC_W];                     // タブ位置バッファ
 
-// スクリーンプレ計算用
-uint16_t CH_W;                // フォント横サイズ
-uint16_t CH_H;                // フォント縦サイズ
-uint16_t SC_W;                // キャラクタスクリーン横サイズ
-uint16_t SC_H;                // キャラクタスクリーン縦サイズ
-uint16_t SCSIZE;              // キャラクタスクリーンサイズ
-uint16_t SP_W;                // ピクセルスクリーン横サイズ
-uint16_t SP_H;                // ピクセルスクリーン縦サイズ
-uint16_t MAX_CH_X;            // フォント最大横位置
-uint16_t MAX_CH_Y;            // フォント最大縦位置
-uint16_t MAX_SC_X;            // キャラクタスクリーン最大横位置
-uint16_t MAX_SC_Y;            // キャラクタスクリーン最大縦位置
-uint16_t MAX_SP_X;            // ピクセルスクリーン最大横位置
-uint16_t MAX_SP_Y;            // ピクセルスクリーン最大縦位置
-uint16_t MARGIN_LEFT;         // 左マージン
-uint16_t MARGIN_TOP;          // 上マージン
-
 // 状態
-PROGMEM enum class em {NONE,  ES, CSI, CSI2, LSC, G0S, G1S, TV1, TV2, EGR};
+PROGMEM enum class em {NONE,  ES, CSI, CSI2, LSC, G0S, G1S, SVA, LC1, LC2, EGR};
 em escMode = em::NONE;         // エスケープシーケンスモード
 bool isShowCursor = false;     // カーソル表示中か？
 bool canShowCursor = false;    // カーソル表示可能か？
@@ -500,7 +502,7 @@ void sc_updateChar(uint16_t x, uint16_t y) {
   for (int i = 0; i < CH_H; i++) {
     bool prev = (a.Bits.Underline && (i == MAX_CH_Y));
     for (int j = 0; j < CH_W; j++) {
-      bool pset = ((*ptr) & (0x80 >> j));
+      bool pset = (a.Bits.Conceal) ? false : ((*ptr) & (0x80 >> j));
       if (isGradientBold) {
         if (pset)
           buf[cnt] = fore;
@@ -581,13 +583,21 @@ void sc_updateLine(uint16_t ln) {
       l.value = colors[idx];                       // カラーアトリビュートの取得
       uint16_t fore = aColors[l.Color.Foreground | (a.Bits.Blink << 3)];
       uint16_t back = aColors[l.Color.Background | (a.Bits.Blink << 3)];
+      uint16_t foreDark = RGB565dark(fore);
       if (a.Bits.Reverse) swap(fore, back);
       if (mode_ex.Flgs.ScreenReverse) swap(fore, back);
       dt = fontTop[c * CH_H + i];                  // 文字内i行データの取得
       bool prev = (a.Bits.Underline && (i == MAX_CH_Y));
       for (uint16_t j = 0; j < CH_W; j++) {
-        bool pset = dt & (0x80 >> j);
-        buf[i & 1][cnt] = (pset || prev) ? fore : back;
+        bool pset = (a.Bits.Conceal) ? false : (dt & (0x80 >> j));
+        if (isGradientBold) {
+          if (pset)
+            buf[i & 1][cnt] = fore;
+          else
+            buf[i & 1][cnt] = (prev) ? foreDark : back;
+        } else {
+          buf[i & 1][cnt] = (pset || prev) ? fore : back;
+        }
         if (a.Bits.Bold)
           prev = pset;
         cnt++;
@@ -677,6 +687,14 @@ void printChar(char c) {
         // G1 セット シーケンス へ
         clearParams(em::G1S);
         break;
+      case 'G':
+        if (mode.Flgs.ADM3A) {
+          // Set Video Attributes (ADM-3A): 属性変更 シーケンス へ
+          clearParams(em::SVA);
+        } else {
+          unknownSequence(escMode, c);
+        }
+        break;
 #ifdef USE_EGR
       case '%':
         // EGR セット シーケンス へ
@@ -695,8 +713,9 @@ void printChar(char c) {
             restoreCursor();
             break;
           case '=':
-            if (mode.Flgs.TeleVideo) {
-              escMode = em::TV1;
+            if (mode.Flgs.ADM3A) {
+              // Load Cursor Row and Column (ADM-3A): カーソル位置指定 シーケンス へ
+              clearParams(em::LC1);
               return;
             } else {
               // DECKPAM (Keypad Application Mode): アプリケーションキーパッドモードにセット
@@ -732,7 +751,7 @@ void printChar(char c) {
             resetToInitialState();
             break;
           case 'T':
-            if (mode.Flgs.TeleVideo) {
+            if (mode.Flgs.ADM3A) {
               eraseInLine(0);
               break;
             }
@@ -1068,65 +1087,87 @@ void printChar(char c) {
   }
 #endif
 
-  if (mode.Flgs.TeleVideo) {
-    // TeleVideo シーケンス 1
-    if (escMode == em::TV1) {
-      escMode = em::TV2;
-      vals[0] = c - ' ' + 1;
+  if (mode.Flgs.ADM3A) {
+    // LC シーケンス 1 (ADM-3A)
+    if (escMode == em::LC1) {
+      escMode = em::LC2;
+      vals[0] = c - ' ' + 1; // 行位置
       return;
     }
 
-    // TeleVideo シーケンス 2
-    if (escMode == em::TV2) {
-      vals[1] = c - ' ' + 1;
+    // LC シーケンス 2 (ADM-3A)
+    if (escMode == em::LC2) {
+      vals[1] = c - ' ' + 1; // 桁位置
       cursorPosition(vals[0], vals[1]); // 指定位置にカーソルを移動
       clearParams(em::NONE);
       return;
     }
 
-    // 改行 (LF / FF)
-    if ((c == 0x0a) || (c == 0x0c)) {
+    // SVA シーケンス (ADM-3A)
+    if (escMode == em::SVA) {
+      setVideoAttributes(c);
+      clearParams(em::NONE);
+      return;
+    }
+
+    // バックスペース (BS / ^H): カーソルを一桁左へ移動
+    if (c == 0x08) {
+      cursorBackward(1);
+      return;
+    }
+
+    // ラインフィード (LF / ^J): カーソルを一行下へ移動
+    if (c == 0x0a) {
       scroll();
       return;
     }
 
-    // 垂直TAB (VT)
+    // 垂直タブ (VT / ^K): カーソルを一行上へ移動
     if (c == 0x0b) {
       cursorUp(1);
       return;
     }
 
-    // 画面消去
+    // フォームフィード (FF / ^L): カーソルを一桁右へ移動
+    if (c == 0x0c) {
+      cursorForward(1);
+      return;
+    }
+
+    // 置換 (SUB / ^Z): 画面消去
     if (c == 0x1a) {
       eraseInDisplay(2);
+      return;
+    }
+
+    // レコード分離 (RS / ^^): カーソルをホーム位置へ移動
+    if (c == 0x1e) {
       setCursorToHome();
       return;
     }
-  } else {
-    // 改行 (LF / VT / FF)
-    if ((c == 0x0a) || (c == 0x0b) || (c == 0x0c)) {
-      scroll();
+
+    // 抹消 (DEL / ^?)
+    if (c == 0x7f) {
       return;
     }
-  }
 
-  // 復帰 (CR)
-  if (c == 0x0d) {
-    XP = 0;
-    return;
-  }
-
-  // バックスペース (BS)
-  if ((c == 0x08) || (c == 0x7f)) {
-    cursorBackward(1);
-    if (!mode.Flgs.TeleVideo) {
+  } else {
+    // バックスペース (BS)
+    if ((c == 0x08) || (c == 0x7f)) {
+      cursorBackward(1);
       uint16_t idx = YP * SC_W + XP;
       screen[idx] = 0;
       attrib[idx] = 0;
       colors[idx] = cColor.value;
       sc_updateChar(XP, YP);
+      return;
     }
-    return;
+
+    // 改行 (LF / VT / FF)
+    if ((c == 0x0a) || (c == 0x0b) || (c == 0x0c)) {
+      scroll();
+      return;
+    }
   }
 
   // タブ (TAB)
@@ -1139,6 +1180,12 @@ void printChar(char c) {
       }
     }
     XP = (idx == -1) ? MAX_SC_X : idx;
+    return;
+  }
+
+  // 復帰 (CR)
+  if (c == 0x0d) {
+    XP = 0;
     return;
   }
 
@@ -1442,11 +1489,10 @@ void underlinecursorMode(bool m) {
   mode.Flgs.UndelineCursor = m;
 }
 
-// : TeleVideo モード
-void televideoMode(bool m) {
-  mode.Flgs.TeleVideo = m;
+// : ADM3A モード
+void adm3aMode(bool m) {
+  mode.Flgs.ADM3A = m;
 }
-
 
 // DECCOLM (Select 80 or 132 Columns per Page): カラムサイズ変更
 void columnMode(bool m) {
@@ -1490,8 +1536,8 @@ void setMode(int16_t *vals, int16_t nVals) {
         underlinecursorMode(true);
         break;
       case 99:
-        // TELEVIDEO
-        televideoMode(true);
+        // ADM-3A (ADM-3A Mode)
+        adm3aMode(true);
         break;
       default:
         DebugSerial.print(F("Unimplement: setMode "));
@@ -1542,8 +1588,8 @@ void resetMode(int16_t *vals, int16_t nVals) {
         underlinecursorMode(false);
         break;
       case 99:
-        // TELEVIDEO
-        televideoMode(false);
+        // ADM-3A (ADM-3A Mode)
+        adm3aMode(false);
         break;
       default:
         DebugSerial.print(F("Unimplement: resetMode "));
@@ -1842,6 +1888,17 @@ void setG0charset(char c) {
 // G1 文字コードの設定
 void setG1charset(char c) {
   DebugSerial.println(F("Unimplement: setG1charset"));
+}
+
+// "G" SVA Sets Sequence
+// -----------------------------------------------------------------------------
+void setVideoAttributes(char c) {
+  uint8_t v = c - '0';
+  cAttr.value = 0;                     // Normal Video
+  if (v & 1) cAttr.Bits.Conceal   = 1; // Invisible
+  if (v & 2) cAttr.Bits.Blink     = 1; // Blink
+  if (v & 4) cAttr.Bits.Reverse   = 1; // Reverse
+  if (v & 8) cAttr.Bits.Underline = 1; // Underline
 }
 
 // Unknown Sequence
