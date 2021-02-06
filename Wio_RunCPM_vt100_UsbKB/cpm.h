@@ -69,7 +69,7 @@ void _PatchCPM(void) {
 		_RamWrite(BIOSpage + i + 2, RET);
 	}
 
-	//**********  Patch CP/M (fake) Disk Paramater Table after the BDOS call entry  **********
+	//**********  Patch CP/M (fake) Disk Paramater Block after the BDOS call entry  **********
 	i = DPBaddr;
 	_RamWrite(i++, 64);  		/* spt - Sectors Per Track */
 	_RamWrite(i++, 0);
@@ -91,6 +91,24 @@ void _PatchCPM(void) {
 	extentMask = _RamRead(DPBaddr + 4);
 	numAllocBlocks = _RamRead16((DPBaddr + 5)) + 1;
 	extentsPerDirEntry = extentMask + 1;
+	//**********  Patch CP/M (fake) Disk Parameter Header after the Disk Parameter Block  **********
+	_RamWrite(i++, 0);		// Addr of the sector translation table
+	_RamWrite(i++, 0);
+	_RamWrite(i++, 0);		// Workspace
+	_RamWrite(i++, 0);
+	_RamWrite(i++, 0);
+	_RamWrite(i++, 0);
+	_RamWrite(i++, 0);
+	_RamWrite(i++, 0);
+	_RamWrite(i++, 0x80);	// Addr of the Sector Buffer
+	_RamWrite(i++, 0);
+	_RamWrite(i++, LOW_REGISTER(DPBaddr));		// Addr of the DPB Disk Parameter Block
+	_RamWrite(i++, HIGH_REGISTER(DPBaddr));
+	_RamWrite(i++, 0);		// Addr of the Directory Checksum Vector
+	_RamWrite(i++, 0);
+	_RamWrite(i++, 0);		// Addr of the Allocation Vector
+	_RamWrite(i++, 0);
+	//
 
 	// figure out the number of the first allocation block
 	// after the directory for the phoney allocation block
@@ -269,6 +287,7 @@ void _logBdosOut(uint8 ch) {
 
 void _Bios(void) {
 	uint8 ch = LOW_REGISTER(PCX);
+	uint8 disk[2] = { 'A', 0 };
 
 #ifdef DEBUGLOG
 #ifdef LOGONLY
@@ -307,7 +326,12 @@ void _Bios(void) {
 	case 0x18:				// 8 - HOME - Home disk head
 		break;
 	case 0x1B:				// 9 - SELDSK - Select disk drive
-		HL = 0x0000;
+		disk[0] += LOW_REGISTER(BC);
+		if (_sys_select(&disk[0])) {
+			HL = DPHaddr;
+		} else {
+			HL = 0x0000;
+		}
 		break;
 	case 0x1E:				// 10 - SETTRK - Set track number
 		break;
@@ -774,25 +798,22 @@ void _Bdos(void) {
 		HL = hostbdos(DE);
 		break;
 #if defined board_wioterm
-		/*
-		C = 232 (E8h) : Wio Terminal specific BDOS call
-		*/
-	case 232:
-		HL = wiobdos(DE);
-		break;
+    /*
+    C = 232 (E8h) : Wio Terminal specific BDOS call
+    */
+  case 232:
+    HL = wiobdos(DE);
+    break;
 #endif
-#if defined board_esp32
 		/*
 		C = 232 (E8h) : ESP32 specific BDOS call
 		*/
+#if defined board_esp32
 	case 232:
 		HL = esp32bdos(DE);
 		break;
 #endif
 #if defined board_stm32
-		/*
-		C = 232 (E8h) : STM32 specific BDOS call
-		*/
 	case 232:
 		HL = stm32bdos(DE);
 		break;

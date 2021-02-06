@@ -9,13 +9,13 @@
 #if defined ARDUINO_SAM_DUE || defined ADAFRUIT_GRAND_CENTRAL_M4 || SEEED_WIO_TERMINAL
 #define HostOS 0x01
 #endif
-#ifdef CORE_TEENSY
+#if defined CORE_TEENSY
 #define HostOS 0x04
 #endif
-#ifdef ESP32
+#if defined ESP32
 #define HostOS 0x05
 #endif
-#ifdef _STM32_DEF_
+#if defined _STM32_DEF_
 #define HostOS 0x06
 #endif
 
@@ -507,6 +507,12 @@ int _kbhit(void) {
 #ifdef USE_CARDKB
   if (!kbhit_char)
   {
+    if (uxQueueMessagesWaiting(xQueue)) {
+      xQueueReceive( xQueue, &kbhit_char, 0 );
+    }
+  }
+  if (!kbhit_char)
+  {
     if (Wire.requestFrom(CARDKB_ADDR, 1))
     {
       kbhit_char = Wire.read();
@@ -576,12 +582,9 @@ int _kbhit(void) {
         break;
       }
     }
-    if ((!kbhit_char) && (uxQueueMessagesWaiting(xQueue))) {
-      xQueueReceive( xQueue, &kbhit_char, 0 );
-    }
   }
   if (canShowCursor || kbhit_char)
-     dispCursor(kbhit_char);
+    dispCursor(kbhit_char);
   return kbhit_char;
 #else
   return(uxQueueMessagesWaiting(xQueue));
@@ -589,15 +592,17 @@ int _kbhit(void) {
 }
 
 uint8 _getch(void) {
-#ifdef USE_CARDKB
-  while (!_kbhit());
-  uint8 ch = kbhit_char;
-  kbhit_char = 0;
-#else
-  while (!uxQueueMessagesWaiting(xQueue))loop2();
-  uint8 ch;
-  xQueueReceive( xQueue, &ch, 0 );
-#endif  
+  uint8 ch; 
+  
+  #ifdef USE_CARDKB
+    while (!_kbhit());
+    ch = kbhit_char;
+    kbhit_char = 0;
+  #else
+    while (!uxQueueMessagesWaiting(xQueue)) loop2();
+    xQueueReceive( xQueue, &ch, 0 );
+  #endif  
+
   return(ch);
 }
 

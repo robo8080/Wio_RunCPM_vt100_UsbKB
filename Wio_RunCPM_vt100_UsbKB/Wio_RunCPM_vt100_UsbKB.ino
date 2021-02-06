@@ -649,25 +649,6 @@ void clearParams(em m) {
   isNegative = false;
 }
 
-int getVowelIndex(char c) {
-  switch (c) {
-    case 'a':
-      return (1);
-    case 'i':
-      return (2);
-    case 'u':
-      return (3);
-    case 'e':
-      return (4);
-    case 'o':
-      return (5);
-    case 'n':
-      return (-1);
-    default:
-      return (0);
-  }
-}
-
 // 文字描画
 void printChar(char c) {
   // [ESC] キー
