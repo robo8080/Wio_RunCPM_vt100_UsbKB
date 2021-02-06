@@ -2,9 +2,10 @@
 #ifndef WIOTERM_H
 #define WIOTERM_H
 
-#define USE_SDIO 0
 SdFat SD;
-#define SDINIT SDCARD_SS_PIN
+// The Wio Terminal uses SPI1. CS pin is SDCARD_SS_PIN
+#define SDMHZ 50
+#define SDINIT SDCARD_SS_PIN, SD_SCK_MHZ(SDMHZ)
 #define LED LED_BUILTIN
 #define LEDinv 0
 #define BOARD "Seeed Wio Terminal"
