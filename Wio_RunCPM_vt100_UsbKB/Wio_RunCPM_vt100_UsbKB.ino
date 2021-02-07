@@ -70,6 +70,9 @@
 #define USE_USBKB                 // USB Keyboard を使う
 //#define USE_CARDKB                // CardKB を使う
 
+// CrdKB I2C アドレス
+#define CARDKB_ADDR   0x5F
+
 //-----------------------------------------------------------------------
 
 // スクリーンプレ計算用
@@ -89,12 +92,56 @@ uint16_t MAX_SP_Y;            // ピクセルスクリーン最大縦位置
 uint16_t MARGIN_LEFT;         // 左マージン
 uint16_t MARGIN_TOP;          // 上マージン
 
+// コマンドの長さ
+PROGMEM const int CMD_LEN = 5;
+// スイッチ情報
+PROGMEM const int SW_PORT[5] = {WIO_5S_UP, WIO_5S_DOWN, WIO_5S_RIGHT, WIO_5S_LEFT, WIO_5S_PRESS};
+bool prev_sw[5] = {false, false, false, false, false};
+enum WIO_SW {SW_UP, SW_DOWN, SW_RIGHT, SW_LEFT, SW_PRESS};
+PROGMEM const char SW_CMD[5][CMD_LEN] = {"\eOA", "\eOB", "\eOC", "\eOD", "\r"};
+// ボタン情報
+PROGMEM const int BTN_PORT[3] = {WIO_KEY_A, WIO_KEY_B, WIO_KEY_C};
+bool prev_btn[3] = {false, false, false};
+enum WIO_BTN {BT_A, BT_B, BT_C};
+PROGMEM const char BTN_CMD[3][CMD_LEN] = {"\eOT", "\eOS", "\eOR"};
+// 特殊キー情報
+enum SP_KEY {KY_HOME, KY_INS, KY_DEL, KY_END, KY_PGUP, KY_PGDOWN};
+PROGMEM const char KEY_CMD[7][CMD_LEN] = {"\eO1", "\eO2", "\x7F", "\eO4", "\eO5", "\eO6"};
+
+/*********************************************
+  ・キーボードと Wio Terminal のボタンとスイッチの対応
+  +-------------+--------------+-----------+
+  |  Keyboard   | Wio Terminal |  ESC SEQ  |
+  +-------------+--------------+-----------+
+  | [F3]/[fn] 3 | WIO_KEY_C    | [ESC] O R |
+  | [F4]/[fn] 4 | WIO_KEY_B    | [ESC] O S |
+  | [F5]/[fn] 5 | WIO_KEY_A    | [ESC] O T |
+  | [UP]        | WIO_5S_UP    | [ESC] O A |
+  | [DOWN]      | WIO_5S_DOWN  | [ESC] O B |
+  | [RIGHT]     | WIO_5S_RIGHT | [ESC] O C |
+  | [LEFT]      | WIO_5S_LEFT  | [ESC] O D |
+  | [ENTER]     | WIO_5S_PRESS | [CR]      |
+  +-------------+--------------+-----------+
+  ・特殊キー
+  +-------------+--------------+-----------+
+  |   USB KB    |    CardKB    |  ESC SEQ  |
+  +-------------+--------------+-----------+
+  | [HOME]      | [Fn] ←      | [ESC] O 1 |
+  | [INS]       | [Fn] 1       | [ESC] O 2 |
+  | [DEL]       | [Shift] <x]  | [DEL]     |
+  | [END]       | [Fn] →      | [ESC] O 4 |
+  | [PAGE UP]   | [Fn] ↑      | [ESC] O 5 |
+  | [PAGE DOWN] | [Fn] ↓      | [ESC] O 6 |
+  | [ALT]+[ESC] | [Fn][ESC]    | [ESC] O 7 |
+  +-------------+--------------+-----------+
+*********************************************/
+
 // キーボード
-#ifdef USE_USBKB
+#if defined USE_USBKB
 #undef USE_CARDKB
 #endif
 
-#ifdef USE_CARDKB
+#if defined USE_CARDKB
 #define KBD_TYPE  "CardKB"
 #else
 #define KBD_TYPE  "USB KB"
@@ -108,13 +155,13 @@ uint16_t MARGIN_TOP;          // 上マージン
 #define DELAY 100
 
 // PUN: device configuration
-#ifdef USE_PUN
+#if defined USE_PUN
 File pun_dev;
 int pun_open = FALSE;
 #endif
 
 // LST: device configuration
-#ifdef USE_LST
+#if defined USE_LST
 File lst_dev;
 int lst_open = FALSE;
 #endif
@@ -130,12 +177,12 @@ int lst_open = FALSE;
 #include "cpu.h"
 #include "disk.h"
 #include "cpm.h"
-#ifdef CCP_INTERNAL
+#if defined CCP_INTERNAL
 #include "ccp.h"
 #endif
 
 // キーボード制御用
-#ifdef USE_CARDKB
+#if defined USE_CARDKB
 #include <Wire.h>
 #else
 #include <KeyboardController.h>
@@ -147,7 +194,7 @@ KeyboardController keyboard(usb);
 #define swap(a, b) { uint16_t t = a; a = b; b = t; }
 
 // シリアル
-#ifdef USE_CARDKB
+#if defined USE_CARDKB
 #define DebugSerial Serial
 #else
 #define DebugSerial Serial1
@@ -289,70 +336,18 @@ bool lastShowCursor = false;   // 前回のカーソル表示状態
 bool hasParam = false;         // <ESC> [ がパラメータを持っているか？
 bool isNegative = false;       // パラメータにマイナス符号が付いているか？
 bool isDECPrivateMode = false; // DEC Private Mode (<ESC> [ ?)
-bool isGradientBold = false;
+bool isGradientBold = false;   // グラデーションボールド
 union MODE mode = {defaultMode};
 union MODE_EX mode_ex = {defaultModeEx};
 
-// コマンドの長さ
-PROGMEM const int CMD_LEN = 4;
-
-// 5 方向スイッチとユーザー定義ボタン
-enum WIO_SW {SW_UP, SW_DOWN, SW_RIGHT, SW_LEFT, SW_PRESS};
-enum WIO_BTN {BT_A, BT_B, BT_C};
-PROGMEM const int SW_PORT[5] = {WIO_5S_UP, WIO_5S_DOWN, WIO_5S_RIGHT, WIO_5S_LEFT, WIO_5S_PRESS};
-PROGMEM const int BTN_PORT[3] = {WIO_KEY_A, WIO_KEY_B, WIO_KEY_C};
-bool prev_sw[5] = {false, false, false, false, false};
-bool prev_btn[3] = {false, false, false};
-
-#ifdef USE_CARDKB
-/*** CardKB *********************************
-  キーボードと Wio Terminal のボタンとスイッチの対応
-  +-------------+--------------+-----------+
-  | キーボード  | Wio Terminal |  ESC SEQ  |
-  +-------------+--------------+-----------+
-  | [fn] 3      | WIO_KEY_C    | 0x83      |
-  | [fn] 4      | WIO_KEY_B    | 0x84      |
-  | [fn] 5      | WIO_KEY_A    | 0x85      |
-  | [UP]        | WIO_5S_UP    | 0xB5      |
-  | [DOWN]      | WIO_5S_DOWN  | 0xB6      |
-  | [RIGHT]     | WIO_5S_RIGHT | 0xB7      |
-  | [LEFT]      | WIO_5S_LEFT  | 0xB4      |
-  | [ENTER]     | WIO_5S_PRESS | [CR]      |
-  +-------------+--------------+-----------+
-********************************************/
-// スイッチ情報
-PROGMEM const char SW_CMD[5][CMD_LEN] = {"\xb5", "\xb6", "\xb7", "\xb4", "\r"};
-// ボタン情報
-PROGMEM const char BTN_CMD[3][CMD_LEN] = {"\x85", "\x84", "\x83"};
-#else
-/*** USB Keyboard ***************************
-  キーボードと Wio Terminal のボタンとスイッチの対応
-  +-------------+--------------+-----------+
-  | キーボード  | Wio Terminal |  ESC SEQ  |
-  +-------------+--------------+-----------+
-  | [F1]        | WIO_KEY_C    | [ESC] O P |
-  | [F2]        | WIO_KEY_B    | [ESC] O Q |
-  | [F3]        | WIO_KEY_A    | [ESC] O R |
-  | [UP]        | WIO_5S_UP    | [ESC] O A |
-  | [DOWN]      | WIO_5S_DOWN  | [ESC] O B |
-  | [RIGHT]     | WIO_5S_RIGHT | [ESC] O C |
-  | [LEFT]      | WIO_5S_LEFT  | [ESC] O D |
-  | [ENTER]     | WIO_5S_PRESS | [CR]      |
-  +-------------+--------------+-----------+
-********************************************/
-// スイッチ情報
-PROGMEM const char SW_CMD[5][CMD_LEN] = {"\eOA", "\eOB", "\eOC", "\eOD", "\r"};
-// ボタン情報
-PROGMEM const char BTN_CMD[3][CMD_LEN] = {"\eOR", "\eOQ", "\eOP"};
-// 特殊キー情報
-enum SP_KEY {KY_HOME, KY_INS, KY_DEL, KY_END, KY_PGUP, KY_PGDOWN};
-PROGMEM const char KEY_CMD[6][CMD_LEN] = {"\eO1", "\eO2", "\x7F", "\eO4", "\eO5", "\eO6"};
-#endif
-
 // キー
 int key;
-void printKey();
-void printSpecialKey(const char *str);
+PROGMEM const uint8 KEY_TBL[48] =  // キー変換テーブル
+{ 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x1e, 0x1c, 0x1f, 0x1b, 0x1d, 0x00,
+  0x00, 0x11, 0x17, 0x05, 0x12, 0x14, 0x19, 0x15, 0x09, 0x0f, 0x10, 0x00,
+  0x00, 0x00, 0x01, 0x13, 0x04, 0x06, 0x07, 0x08, 0x0a, 0x0b, 0x0c, 0x00,
+  0x00, 0x00, 0x1a, 0x18, 0x03, 0x16, 0x02, 0x0e, 0x0d, 0x00, 0x00, 0x00
+};
 
 // 前回位置情報
 int16_t p_XP = 0;
@@ -406,7 +401,7 @@ static inline uint16_t RGB565dark(uint16_t col) {
   return res;
 }
 
-#ifndef USE_CARDKB
+#if !defined USE_CARDKB
 // イベント: キーを押した
 void keyPressed() {
   //printKey();
@@ -416,25 +411,90 @@ void keyPressed() {
 void keyReleased() {
   printKey();
 }
+#endif
 
 // キー押下処理
 void printKey() {
-  char c = keyboard.getKey();
+
+  char c = 0;
+#if defined USE_CARDKB
+  if (Wire.requestFrom(CARDKB_ADDR, 1))
+    c = Wire.read();
+  needCursorUpdate = (c > 0x00) && (c < 0x80);
+#else
+  c = keyboard.getKey();
   needCursorUpdate = c;
+#endif
+
   if (needCursorUpdate) {
     xQueueSend(xQueue, &c, 0);
   } else {
     needCursorUpdate = true;
+
+#if defined USE_CARDKB
+    switch (c) {
+      case 0x81:          // Fn-1 (Ctrl+!)
+        printSpecialKey(KEY_CMD[KY_INS]);
+        break;
+      case 0x83:          // Fn-3 (Ctrl+#)
+        printSpecialKey(BTN_CMD[BT_C]);
+        break;
+      case 0x84:          // Fn-4 (Ctrl+$)
+        printSpecialKey(BTN_CMD[BT_B]);
+        break;
+      case 0x85:          // Fn-5 (Ctrl+%)
+        printSpecialKey(BTN_CMD[BT_A]);
+        break;
+      case 0x82:          // Fn-2 (Ctrl+@)
+      case 0x86:          // Fn-6 (Ctrl+^)
+      case 0x87:          // Fn-7 (Ctrl+\)
+      case 0x88:          // Fn-8 (Ctrl+_)
+      case 0x89:          // Fn-9 (Ctrl+[)
+      case 0x8a:          // Fn-0 (Ctrl+])
+      case 0x8d ... 0x96: // Fn-Q..P
+      case 0x9a ... 0xa2: // Fn-A..L
+      case 0xa6 ... 0xac: // Fn-Z..M
+        c = KEY_TBL[c - 0x80];
+        xQueueSend(xQueue, &c, 0);
+        break;
+      case 0xb4:          // Left
+        printSpecialKey(SW_CMD[SW_LEFT]);
+        break;
+      case 0xb5:          // Up
+        printSpecialKey(SW_CMD[SW_UP]);
+        break;
+      case 0xb6:          // Down
+        printSpecialKey(SW_CMD[SW_DOWN]);
+        break;
+      case 0xb7:          // Right
+        printSpecialKey(SW_CMD[SW_RIGHT]);
+        break;
+      case 0x98:          // Fn-Left
+        printSpecialKey(KEY_CMD[KY_HOME]);
+        break;
+      case 0x99:          // Fn-Up
+        printSpecialKey(KEY_CMD[KY_PGUP]);
+        break;
+      case 0xA4:          // Fn-Down
+        printSpecialKey(KEY_CMD[KY_PGDOWN]);
+        break;
+      case 0xA5:          // Fn-Right
+        printSpecialKey(KEY_CMD[KY_END]);
+        break;
+      default:
+        needCursorUpdate = false;
+    }
+#else
     int key = keyboard.getOemKey();
     int mod = keyboard.getModifiers();
     switch (key) {
-      case 58: // F1 (Wio Button #3)
+      case 60: // F3 (Wio Button #3)
         printSpecialKey(BTN_CMD[BT_C]);
         break;
-      case 59: // F2 (Wio Button #2)
+      case 61: // F4 (Wio Button #2)
         printSpecialKey(BTN_CMD[BT_B]);
         break;
-      case 60: // F3 (Wio Button #1)
+      case 62: // F5 (Wio Button #1)
         printSpecialKey(BTN_CMD[BT_A]);
         break;
       case 73: // Insert
@@ -470,10 +530,9 @@ void printKey() {
       default:
         needCursorUpdate = false;
     }
+#endif
   }
 }
-#endif
-
 
 // 特殊キーの送信
 void printSpecialKey(const char *str) {
@@ -695,7 +754,7 @@ void printChar(char c) {
           unknownSequence(escMode, c);
         }
         break;
-#ifdef USE_EGR
+#if defined USE_EGR
       case '%':
         // EGR セット シーケンス へ
         clearParams(em::EGR);
@@ -951,7 +1010,7 @@ void printChar(char c) {
     return;
   }
 
-#ifdef USE_EGR
+#if defined USE_EGR
   // "%" EGR シーケンス
   if (escMode == em::EGR) {
     if (isdigit(c) || c == '-') {
@@ -1168,6 +1227,12 @@ void printChar(char c) {
       scroll();
       return;
     }
+  }
+
+  // ベル (BEL)
+  if (c == 0x07) {
+    playBeep(1, 12, 583);
+    return;
   }
 
   // タブ (TAB)
@@ -2044,7 +2109,7 @@ void setup() {
   // ブザーの初期化
   pinMode(SPK_PIN, OUTPUT);
 
-#ifndef USE_CARDKB
+#if !defined USE_CARDKB
   // キーボードの初期化
   if (usb.Init())
     DebugSerial.println(F("USB host did not start."));
@@ -2053,7 +2118,7 @@ void setup() {
   digitalWrite(OUTPUT_CTR_5V, HIGH);
 #endif
 
-#ifdef DEBUGLOG
+#if defined DEBUGLOG
   _sys_deletefile((uint8 *)LogName);
 #endif
 
@@ -2086,7 +2151,7 @@ void setup() {
         _puts(CCPHEAD);
         _PatchCPM();
         Status = 0;
-#ifndef CCP_INTERNAL
+#if !defined CCP_INTERNAL
         if (!_RamLoad((char *)CCPname, CCPaddr)) {
           _puts("Unable to load the CCP.\r\nCPU halted.\r\n");
           break;
@@ -2100,11 +2165,11 @@ void setup() {
 #endif
         if (Status == 1)
           break;
-#ifdef USE_PUN
+#if defined USE_PUN
         if (pun_dev)
           _sys_fflush(pun_dev);
 #endif
-#ifdef USE_LST
+#if defined USE_LST
         if (lst_dev)
           _sys_fflush(lst_dev);
 #endif
@@ -2134,7 +2199,9 @@ void loop2() {
   // RTC
   now = rtc.now();
 
-#ifndef USE_CARDKB
+#if defined USE_CARDKB
+  printKey();
+#else
   // USB
   usb.Task();
 #endif
@@ -2165,11 +2232,9 @@ void loop2() {
     }
   }
 
-#ifndef USE_CARDKB
   // カーソル表示処理
   if (canShowCursor || needCursorUpdate) {
     dispCursor(needCursorUpdate);
     needCursorUpdate = false;
   }
-#endif
 }
