@@ -2,7 +2,7 @@
 #define ABSTRACT_H
 #include <Wire.h>
 
-#ifdef PROFILE
+#if defined PROFILE
 #define printf(a, b) Serial.println(b)
 #endif
 
@@ -17,16 +17,6 @@
 #endif
 #if defined _STM32_DEF_
 #define HostOS 0x06
-#endif
-
-#ifdef USE_CARDKB
-// CrdKB I2C アドレス
-#define CARDKB_ADDR 0x5F
-// キー変換テーブル
-PROGMEM const uint8 KEY_TBL[48] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x1e, 0x1c, 0x1f, 0x1b, 0x1d, 0x00, 
-                                   0x00, 0x11, 0x17, 0x05, 0x12, 0x14, 0x19, 0x15, 0x09, 0x0f, 0x10, 0x00, 
-                                   0x00, 0x00, 0x01, 0x13, 0x04, 0x06, 0x07, 0x08, 0x0a, 0x0b, 0x0c, 0x00, 
-                                   0x00, 0x00, 0x1a, 0x18, 0x03, 0x16, 0x02, 0x0e, 0x0d, 0x00, 0x00, 0x00};
 #endif
 
 /* Memory abstraction functions */
@@ -162,9 +152,9 @@ int _sys_renamefile(uint8* filename, uint8* newname) {
   return(result);
 }
 
-#ifdef DEBUGLOG
+#if defined DEBUGLOG
 void _sys_logbuffer(uint8* buffer) {
-#ifdef CONSOLELOG
+#if defined CONSOLELOG
   puts((char*)buffer);
 #else
   File f;
@@ -492,117 +482,18 @@ uint8 _sys_makedisk(uint8 drive) {
 /*===============================================================================*/
 extern void printChar(char c);
 extern void printString(const char *str);
-extern void playBeep(const uint16_t Number, const uint8_t ToneNo, const uint16_t Duration);
 extern void loop2();
-
-#ifdef USE_CARDKB
-extern bool canShowCursor;    // カーソル表示可能か？
-extern void dispCursor(bool forceupdate);
-extern void printSpecialKey(const char *str);
-static uint8 kbhit_char = 0;
-#endif
 
 int _kbhit(void) {
   loop2();
-#ifdef USE_CARDKB
-  if (!kbhit_char)
-  {
-    if (uxQueueMessagesWaiting(xQueue)) {
-      xQueueReceive( xQueue, &kbhit_char, 0 );
-    }
-  }
-  if (!kbhit_char)
-  {
-    if (Wire.requestFrom(CARDKB_ADDR, 1))
-    {
-      kbhit_char = Wire.read();
-      switch (kbhit_char)
-      {
-      case 0x81:          // Fn-1 (Ctrl+!)
-        printSpecialKey(KEY_CMD[KY_INS]);
-        kbhit_char = 0;
-        break;
-      case 0x83:          // Fn-3 (Ctrl+#)
-        printSpecialKey(BTN_CMD[BT_C]);
-        kbhit_char = 0;
-        break;
-      case 0x84:          // Fn-4 (Ctrl+$)
-        printSpecialKey(BTN_CMD[BT_B]);
-        kbhit_char = 0;
-        break;
-      case 0x85:          // Fn-5 (Ctrl+%)
-        printSpecialKey(BTN_CMD[BT_A]);
-        kbhit_char = 0;
-        break;
-      case 0x82:          // Fn-2 (Ctrl+@)
-      case 0x86:          // Fn-6 (Ctrl+^)
-      case 0x87:          // Fn-7 (Ctrl+\)
-      case 0x88:          // Fn-8 (Ctrl+_)
-      case 0x89:          // Fn-9 (Ctrl+[)
-      case 0x8a:          // Fn-0 (Ctrl+])
-      case 0x8d ... 0x96: // Fn-Q..P
-      case 0x9a ... 0xa2: // Fn-A..L
-      case 0xa6 ... 0xac: // Fn-Z..M
-        kbhit_char = KEY_TBL[kbhit_char - 0x80];
-        break;
-      case 0xb4:          // Left
-        printSpecialKey(SW_CMD[SW_LEFT]);
-        kbhit_char = 0;
-        break;
-      case 0xb5:          // Up
-        printSpecialKey(SW_CMD[SW_UP]);
-        kbhit_char = 0;
-        break;
-      case 0xb6:          // Down
-        printSpecialKey(SW_CMD[SW_DOWN]);
-        kbhit_char = 0;
-        break;
-      case 0xb7:          // Right
-        printSpecialKey(SW_CMD[SW_RIGHT]);
-        kbhit_char = 0;
-        break;
-      case 0x98:          // Fn-Left
-        printSpecialKey(KEY_CMD[KY_HOME]);
-        kbhit_char = 0;
-        break;
-      case 0x99:          // Fn-Up
-        printSpecialKey(KEY_CMD[KY_PGUP]);
-        kbhit_char = 0;
-        break;
-      case 0xA4:          // Fn-Down
-        printSpecialKey(KEY_CMD[KY_PGDOWN]);
-        kbhit_char = 0;
-        break;
-      case 0xA5:          // Fn-Right
-        printSpecialKey(KEY_CMD[KY_END]);
-        kbhit_char = 0;
-        break;
-      default:
-        if (kbhit_char >= 0x80) kbhit_char = 0;
-        break;
-      }
-    }
-  }
-  if (canShowCursor || kbhit_char)
-    dispCursor(kbhit_char);
-  return kbhit_char;
-#else
   return(uxQueueMessagesWaiting(xQueue));
-#endif  
 }
 
 uint8 _getch(void) {
   uint8 ch; 
-  
-  #ifdef USE_CARDKB
-    while (!_kbhit());
-    ch = kbhit_char;
-    kbhit_char = 0;
-  #else
-    while (!uxQueueMessagesWaiting(xQueue)) loop2();
-    xQueueReceive( xQueue, &ch, 0 );
-  #endif  
-
+  while (!uxQueueMessagesWaiting(xQueue)) 
+    loop2();
+  xQueueReceive( xQueue, &ch, 0 );
   return(ch);
 }
 
@@ -613,14 +504,7 @@ uint8 _getche(void) {
 }
 
 void _putch(uint8 ch) {
-  switch (ch) {
-    case 0x07:
-      playBeep(1, 12, 583);
-      break;
-    default:
-      printChar(ch);
-      break;
-  }
+  printChar(ch);
 }
 
 void _clrscr(void) {
