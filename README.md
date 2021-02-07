@@ -59,9 +59,12 @@ RunCPM 用のディスク (microSD) は別途用意する必要があります(�
 2. Turbo Pascalについて
 * [CP/M 8266](https://github.com/SmallRoomLabs/cpm8266 "Title") の disks/c に有るものなどが使える。
 * [Turbo Pascal 3.0.x の使い方](https://qiita.com/ht_deko/items/ec212f5cc17cbe5f718b "Title")
+* [Turbo Pascal 3.0.x の Pascal](https://qiita.com/ht_deko/items/f9f394dc2342afd2ea7b "Title")
 * [Turbo Pascal 3.0.x のスクリーン設定](https://qiita.com/ht_deko/items/0d8976801c02ec685bd6 "Title")
-* [Turbo Pascal 3.0.x のキーボードショートカット](https://qiita.com/ht_deko/items/86ddf71d0c509125b7ba "Title")<br><br>
+* [Turbo Pascal 3.0.x のキーボードショートカット](https://qiita.com/ht_deko/items/86ddf71d0c509125b7ba "Title")
+* TurboPascal サブフォルダ内のサンプルプログラムを実行すると、このバージョンに施された拡張を知ることができる。<br><br>
 3. Rogueについて
 * Rogue のアーカイブ <https://britzl.github.io/roguearchive/>
-* CP/M 版をダウンロード＆解凍して、その中のアーカイブも解凍して、ROGUE.COM は削除して、ROGUE.CPM を ROGUE .COM にリネームする。<br><br>
+* CP/M 版をダウンロード＆解凍して、その中のアーカイブも解凍して、ROGUE.COM は削除して、ROGUE.CPM を ROGUE .COM にリネームする。
+* Rogue は 80x24 文字を必要とするので、Turbo Pascal で SCREEN.PAS をコンパイルして実行形式ファイルを生成、`SCREEN 7` を実行する。<br><br>
 
