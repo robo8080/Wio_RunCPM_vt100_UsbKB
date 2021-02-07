@@ -62,7 +62,7 @@ RunCPM 用のディスク (microSD) は別途用意する必要があります(�
 * [Turbo Pascal 3.0.x の Pascal](https://qiita.com/ht_deko/items/f9f394dc2342afd2ea7b "Title")
 * [Turbo Pascal 3.0.x のスクリーン設定](https://qiita.com/ht_deko/items/0d8976801c02ec685bd6 "Title")
 * [Turbo Pascal 3.0.x のキーボードショートカット](https://qiita.com/ht_deko/items/86ddf71d0c509125b7ba "Title")
-* [TurboPascal サブフォルダ](tree/master/Wio_RunCPM_vt100_UsbKB/TurboPascal)内のサンプルプログラムを実行すると、このバージョンに施された拡張を知ることができる。<br><br>
+* [TurboPascal サブフォルダ](Wio_RunCPM_vt100_UsbKB/TurboPascal)内のサンプルプログラムを実行すると、このバージョンに施された拡張を知ることができる。<br><br>
 3. Rogueについて
 * Rogue のアーカイブ <https://britzl.github.io/roguearchive/>
 * CP/M 版をダウンロード＆解凍して、その中のアーカイブも解凍して、ROGUE.COM は削除して、ROGUE.CPM を ROGUE .COM にリネームする。
