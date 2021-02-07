@@ -134,11 +134,11 @@ PROGMEM const char KEY_CMD[7][CMD_LEN] = {"\eO1", "\eO2", "\x7F", "\eO4", "\eO5"
 *********************************************/
 
 // キーボード
-#ifdef USE_USBKB
+#if defined USE_USBKB
 #undef USE_CARDKB
 #endif
 
-#ifdef USE_CARDKB
+#if defined USE_CARDKB
 #define KBD_TYPE  "CardKB"
 #else
 #define KBD_TYPE  "USB KB"
@@ -152,13 +152,13 @@ PROGMEM const char KEY_CMD[7][CMD_LEN] = {"\eO1", "\eO2", "\x7F", "\eO4", "\eO5"
 #define DELAY 100
 
 // PUN: device configuration
-#ifdef USE_PUN
+#if defined USE_PUN
 File pun_dev;
 int pun_open = FALSE;
 #endif
 
 // LST: device configuration
-#ifdef USE_LST
+#if defined USE_LST
 File lst_dev;
 int lst_open = FALSE;
 #endif
@@ -174,12 +174,12 @@ int lst_open = FALSE;
 #include "cpu.h"
 #include "disk.h"
 #include "cpm.h"
-#ifdef CCP_INTERNAL
+#if defined CCP_INTERNAL
 #include "ccp.h"
 #endif
 
 // キーボード制御用
-#ifdef USE_CARDKB
+#if defined USE_CARDKB
 #include <Wire.h>
 #else
 #include <KeyboardController.h>
@@ -191,7 +191,7 @@ KeyboardController keyboard(usb);
 #define swap(a, b) { uint16_t t = a; a = b; b = t; }
 
 // シリアル
-#ifdef USE_CARDKB
+#if defined USE_CARDKB
 #define DebugSerial Serial
 #else
 #define DebugSerial Serial1
@@ -342,6 +342,15 @@ int key;
 void printKey();
 void printSpecialKey(const char *str);
 
+#if defined USE_CARDKB
+#define CARDKB_ADDR 0x5F // CrdKB I2C アドレス
+PROGMEM const uint8 KEY_TBL[48] =  // キー変換テーブル
+  {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x1e, 0x1c, 0x1f, 0x1b, 0x1d, 0x00, 
+   0x00, 0x11, 0x17, 0x05, 0x12, 0x14, 0x19, 0x15, 0x09, 0x0f, 0x10, 0x00, 
+   0x00, 0x00, 0x01, 0x13, 0x04, 0x06, 0x07, 0x08, 0x0a, 0x0b, 0x0c, 0x00, 
+   0x00, 0x00, 0x1a, 0x18, 0x03, 0x16, 0x02, 0x0e, 0x0d, 0x00, 0x00, 0x00};
+#endif
+
 // 前回位置情報
 int16_t p_XP = 0;
 int16_t p_YP = 0;
@@ -394,7 +403,7 @@ static inline uint16_t RGB565dark(uint16_t col) {
   return res;
 }
 
-#ifndef USE_CARDKB
+#if !defined USE_CARDKB
 // イベント: キーを押した
 void keyPressed() {
   //printKey();
@@ -404,15 +413,80 @@ void keyPressed() {
 void keyReleased() {
   printKey();
 }
+#endif
 
 // キー押下処理
 void printKey() {
-  char c = keyboard.getKey();
+
+  char c = 0;
+#if defined USE_CARDKB
+  if (Wire.requestFrom(CARDKB_ADDR, 1))
+    c = Wire.read();
+  needCursorUpdate = (c > 0x00) && (c < 0x80);
+#else
+  c = keyboard.getKey();
   needCursorUpdate = c;
+#endif
+
   if (needCursorUpdate) {
     xQueueSend(xQueue, &c, 0);
   } else {
     needCursorUpdate = true;
+
+#if defined USE_CARDKB
+    switch (c) {
+      case 0x81:          // Fn-1 (Ctrl+!)
+        printSpecialKey(KEY_CMD[KY_INS]);
+        break;
+      case 0x83:          // Fn-3 (Ctrl+#)
+        printSpecialKey(BTN_CMD[BT_C]);
+        break;
+      case 0x84:          // Fn-4 (Ctrl+$)
+        printSpecialKey(BTN_CMD[BT_B]);
+        break;
+      case 0x85:          // Fn-5 (Ctrl+%)
+        printSpecialKey(BTN_CMD[BT_A]);
+        break;
+      case 0x82:          // Fn-2 (Ctrl+@)
+      case 0x86:          // Fn-6 (Ctrl+^)
+      case 0x87:          // Fn-7 (Ctrl+\)
+      case 0x88:          // Fn-8 (Ctrl+_)
+      case 0x89:          // Fn-9 (Ctrl+[)
+      case 0x8a:          // Fn-0 (Ctrl+])
+      case 0x8d ... 0x96: // Fn-Q..P
+      case 0x9a ... 0xa2: // Fn-A..L
+      case 0xa6 ... 0xac: // Fn-Z..M
+        c = KEY_TBL[c - 0x80];
+        xQueueSend(xQueue, &c, 0);
+        break;
+      case 0xb4:          // Left
+        printSpecialKey(SW_CMD[SW_LEFT]);
+        break;
+      case 0xb5:          // Up
+        printSpecialKey(SW_CMD[SW_UP]);
+        break;
+      case 0xb6:          // Down
+        printSpecialKey(SW_CMD[SW_DOWN]);
+        break;
+      case 0xb7:          // Right
+        printSpecialKey(SW_CMD[SW_RIGHT]);
+        break;
+      case 0x98:          // Fn-Left
+        printSpecialKey(KEY_CMD[KY_HOME]);
+        break;
+      case 0x99:          // Fn-Up
+        printSpecialKey(KEY_CMD[KY_PGUP]);
+        break;
+      case 0xA4:          // Fn-Down
+        printSpecialKey(KEY_CMD[KY_PGDOWN]);
+        break;
+      case 0xA5:          // Fn-Right
+        printSpecialKey(KEY_CMD[KY_END]);
+        break;
+      default:
+        needCursorUpdate = false;
+    }
+#else
     int key = keyboard.getOemKey();
     int mod = keyboard.getModifiers();
     switch (key) {
@@ -458,10 +532,9 @@ void printKey() {
       default:
         needCursorUpdate = false;
     }
+#endif
   }
 }
-#endif
-
 
 // 特殊キーの送信
 void printSpecialKey(const char *str) {
@@ -683,7 +756,7 @@ void printChar(char c) {
           unknownSequence(escMode, c);
         }
         break;
-#ifdef USE_EGR
+#if defined USE_EGR
       case '%':
         // EGR セット シーケンス へ
         clearParams(em::EGR);
@@ -939,7 +1012,7 @@ void printChar(char c) {
     return;
   }
 
-#ifdef USE_EGR
+#if defined USE_EGR
   // "%" EGR シーケンス
   if (escMode == em::EGR) {
     if (isdigit(c) || c == '-') {
@@ -1158,6 +1231,12 @@ void printChar(char c) {
     }
   }
 
+  // ベル (BEL)
+  if (c == 0x07) {
+    playBeep(1, 12, 583);
+    return;
+  }
+  
   // タブ (TAB)
   if (c == 0x09) {
     int16_t idx = -1;
@@ -2032,7 +2111,7 @@ void setup() {
   // ブザーの初期化
   pinMode(SPK_PIN, OUTPUT);
 
-#ifndef USE_CARDKB
+#if !defined USE_CARDKB
   // キーボードの初期化
   if (usb.Init())
     DebugSerial.println(F("USB host did not start."));
@@ -2041,7 +2120,7 @@ void setup() {
   digitalWrite(OUTPUT_CTR_5V, HIGH);
 #endif
 
-#ifdef DEBUGLOG
+#if defined DEBUGLOG
   _sys_deletefile((uint8 *)LogName);
 #endif
 
@@ -2074,7 +2153,7 @@ void setup() {
         _puts(CCPHEAD);
         _PatchCPM();
         Status = 0;
-#ifndef CCP_INTERNAL
+#if !defined CCP_INTERNAL
         if (!_RamLoad((char *)CCPname, CCPaddr)) {
           _puts("Unable to load the CCP.\r\nCPU halted.\r\n");
           break;
@@ -2088,11 +2167,11 @@ void setup() {
 #endif
         if (Status == 1)
           break;
-#ifdef USE_PUN
+#if defined USE_PUN
         if (pun_dev)
           _sys_fflush(pun_dev);
 #endif
-#ifdef USE_LST
+#if defined USE_LST
         if (lst_dev)
           _sys_fflush(lst_dev);
 #endif
@@ -2122,7 +2201,9 @@ void loop2() {
   // RTC
   now = rtc.now();
 
-#ifndef USE_CARDKB
+#if defined USE_CARDKB
+  printKey();
+#else
   // USB
   usb.Task();
 #endif
@@ -2153,11 +2234,9 @@ void loop2() {
     }
   }
 
-#ifndef USE_CARDKB
   // カーソル表示処理
   if (canShowCursor || needCursorUpdate) {
     dispCursor(needCursorUpdate);
     needCursorUpdate = false;
   }
-#endif
 }
