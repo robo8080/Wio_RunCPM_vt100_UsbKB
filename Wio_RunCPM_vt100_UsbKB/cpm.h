@@ -555,7 +555,8 @@ void _Bdos(void) {
 				++i;
 				count = 0;
 			}
-			if (chr < 0x20 || chr > 0x7E)						// Invalid character
+			//if (chr < 0x20 || chr > 0x7E)						// Invalid character
+			if (chr < 0x20 || ((mask8bit & 0x80) ? (chr == 0x7F) : (chr > 0x7E)))
 				continue;
 			_putcon(chr);
 			++count; _RamWrite((i + count) & 0xffff, chr);
