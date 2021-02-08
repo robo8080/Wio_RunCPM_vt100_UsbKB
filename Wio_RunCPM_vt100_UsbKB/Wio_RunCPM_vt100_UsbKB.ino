@@ -67,8 +67,8 @@
 #define USE_EGR                   // EGR 拡張
 
 // キーボードタイプ
-//#define USE_USBKB                 // USB Keyboard を使う
-#define USE_CARDKB                // CardKB を使う
+#define USE_USBKB                 // USB Keyboard を使う
+//#define USE_CARDKB                // CardKB を使う
 
 // CrdKB I2C アドレス
 #define CARDKB_ADDR   0x5F
@@ -432,8 +432,13 @@ void printKey() {
   needCursorUpdate = (c > 0x00) && (c < 0x80);
 #else
   c = keyboard.getKey();
-  needCursorUpdate = c;
+  int key = keyboard.getOemKey();
+  int mod = keyboard.getModifiers();
+  needCursorUpdate = (c > 0x00) && (c < 0x80);
+  if ((key == 0x29) && (mod == 4))
+    needCursorUpdate = false;
 #endif
+
   if (needCursorUpdate) {
     if (!toKana(c))
       return;
@@ -499,10 +504,8 @@ void printKey() {
         needCursorUpdate = false;
     }
 #else
-    int key = keyboard.getOemKey();
-    int mod = keyboard.getModifiers();
     switch (key) {
-      case 0x41:          // Alt-Esc
+      case 0x29:          // Alt-Esc
         if (mod == 4) {
           isConvert = (mask8bit & 0x80) ? !isConvert : false;
           rLen = 0;
