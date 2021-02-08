@@ -67,8 +67,8 @@
 #define USE_EGR                   // EGR 拡張
 
 // キーボードタイプ
-#define USE_USBKB                 // USB Keyboard を使う
-//#define USE_CARDKB                // CardKB を使う
+//#define USE_USBKB                 // USB Keyboard を使う
+#define USE_CARDKB                // CardKB を使う
 
 // CrdKB I2C アドレス
 #define CARDKB_ADDR   0x5F
@@ -166,6 +166,9 @@ File lst_dev;
 int lst_open = FALSE;
 #endif
 
+// 前方宣言
+void resetSystem();
+
 // Board definitions go into the "hardware" folder, if you use a board different than the
 // Arduino DUE, choose/change a file from there and replace arduino/due.h here
 #include "hardware/arduino/wioterm.h"
@@ -180,6 +183,7 @@ int lst_open = FALSE;
 #if defined CCP_INTERNAL
 #include "ccp.h"
 #endif
+#include "romanconv.h"
 
 // キーボード制御用
 #if defined USE_CARDKB
@@ -401,6 +405,11 @@ static inline uint16_t RGB565dark(uint16_t col) {
   return res;
 }
 
+// システムリセット (CP/M のコールドブート)
+void resetSystem() {
+  NVIC_SystemReset();
+}
+
 #if !defined USE_CARDKB
 // イベント: キーを押した
 void keyPressed() {
@@ -425,14 +434,19 @@ void printKey() {
   c = keyboard.getKey();
   needCursorUpdate = c;
 #endif
-
   if (needCursorUpdate) {
+    if (!toKana(c))
+      return;
     xQueueSend(xQueue, &c, 0);
   } else {
     needCursorUpdate = true;
-
 #if defined USE_CARDKB
     switch (c) {
+      case 0x80:          // Fn-Esc
+        isConvert = (mask8bit & 0x80) ? !isConvert : false;
+        rLen = 0;
+        needCursorUpdate = false;
+        break;
       case 0x81:          // Fn-1 (Ctrl+!)
         printSpecialKey(KEY_CMD[KY_INS]);
         break;
@@ -488,6 +502,13 @@ void printKey() {
     int key = keyboard.getOemKey();
     int mod = keyboard.getModifiers();
     switch (key) {
+      case 0x41:          // Alt-Esc
+        if (mod == 4) {
+          isConvert = (mask8bit & 0x80) ? !isConvert : false;
+          rLen = 0;
+        }
+        needCursorUpdate = false;
+        break;
       case 60: // F3 (Wio Button #3)
         printSpecialKey(BTN_CMD[BT_C]);
         break;
@@ -1900,7 +1921,7 @@ void setTopAndBottomMargins(int16_t s, int16_t e) {
 
 // DECTST (Invoke Confidence Test): テスト診断を行う
 void invokeConfidenceTests(uint8_t m) {
-  NVIC_SystemReset();
+  resetSystem();
 }
 
 // "]" Operating System Command (OSC) シーケンス
