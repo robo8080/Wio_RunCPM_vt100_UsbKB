@@ -52,7 +52,7 @@ uint8_t toKana(const uint8_t ch) {
     rLen = 0;
     return (ch);
   }
-  uint8_t c = CONV_TBL[ch];
+  uint8_t c = ((ch < 'A') || (ch > 'Z')) ? ch : ch + 0x20;
   if (!c) {
     // 変換対象の文字ではない
     rLen = 0;
@@ -196,7 +196,7 @@ uint8_t toKana(const uint8_t ch) {
             break;
         }
       } else {
-        if ((rBuf[0] == 'n') && (idx == -1)) {
+        if (((rBuf[0] == 'n') || (rBuf[0] == 'x')) && (idx == -1)) {
           kana_push(0xDD); // ン
         } else {
           switch (c) {
