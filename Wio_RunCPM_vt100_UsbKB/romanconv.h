@@ -7,7 +7,7 @@ uint8_t rLen   = 0;     // 変換位置
 char rBuf[5]   = {};    // ローマ字入力バッファ
 
 // 文字変換テーブル
-PROGMEM const uint8_t CONV_TBL[128] = {
+PROGMEM const char CONV_TBL[] = {
   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xA2, 0xA3, 0x00, 0xA5, 0xA4, 0xB0, 0xA1, 0x00, 
@@ -84,12 +84,12 @@ PROGMEM const char CONV_DIC[] = {
 PROGMEM const int DIC_CNT = sizeof(CONV_DIC) / sizeof(CONV_DIC[0]) / 16;
 
 // 変換後の文字をキューに入れる
-void kana_push(const char c) {
+void pushKana(const uint8_t c) {
   xQueueSend(xQueue, &c, 0);
 }
 
 // 母音のインデックスを得る
-int getVowelIndex(const char c) {
+int getVowelIndex(const uint8_t c) {
   switch (c) {
     case 'a': return (0);
     case 'i': return (1);
@@ -116,7 +116,7 @@ uint8_t toKana(const uint8_t ch) {
   if ((c < 'a') || (c > 'z')) {
     // 変換対象だがローマ字用の文字ではない
     rLen = 0;
-    kana_push(c);
+    pushKana(c);
     return (0);
   }
 
@@ -129,9 +129,9 @@ uint8_t toKana(const uint8_t ch) {
     for (int i = 0; i < DIC_CNT; i++) {
       const char *arr = &CONV_DIC[i * 16];
       if (strncmp(arr, rBuf, rLen + 1) == 0) {
-        if (arr[idx * 2 + 4]) kana_push(arr[idx * 2 + 4]);
-        if (arr[3])           kana_push(arr[3]);
-        if (arr[idx * 2 + 5]) kana_push(arr[idx * 2 + 5]);
+        if (arr[idx * 2 + 4]) pushKana(arr[idx * 2 + 4]);
+        if (arr[3])           pushKana(arr[3]);
+        if (arr[idx * 2 + 5]) pushKana(arr[idx * 2 + 5]);
         break;
       }
     }
