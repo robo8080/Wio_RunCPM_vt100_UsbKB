@@ -308,7 +308,7 @@ uint8_t toKana(const uint8_t ch) {
               case 'b': // ビャビィビュビェビョ
               case 'p': // ピャピィピュピェピョ
                 kana_push(0xCB);
-                if (rBuf[0] == 'd')
+                if (rBuf[0] == 'b')
                   kana_push(0xDE);
                 if (rBuf[0] == 'p')
                   kana_push(0xDF);
