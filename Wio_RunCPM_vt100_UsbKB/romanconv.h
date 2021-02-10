@@ -120,6 +120,7 @@ uint8_t toKana(const uint8_t ch) {
     return (0);
   }
 
+  if (rLen > 3) rLen = 0;
   rBuf[rLen] = 0x00;
   int idx = getVowelIndex(c);
 
@@ -128,10 +129,13 @@ uint8_t toKana(const uint8_t ch) {
   } else {
     for (int i = 0; i < DIC_CNT; i++) {
       const char *arr = &CONV_DIC[i * 16];
-      if (strncmp(arr, rBuf, rLen + 1) == 0) {
+      int flg = strncmp(arr, rBuf, rLen + 1);
+      if (flg == 0) {
         if (arr[idx * 2 + 4]) pushKana(arr[idx * 2 + 4]);
         if (arr[3])           pushKana(arr[3]);
         if (arr[idx * 2 + 5]) pushKana(arr[idx * 2 + 5]);
+        break;
+      } else if (flg > 0) {
         break;
       }
     }
