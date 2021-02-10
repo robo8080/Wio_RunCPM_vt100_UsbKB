@@ -143,8 +143,10 @@ PROGMEM const char KEY_CMD[7][CMD_LEN] = {"\eO1", "\eO2", "\x7F", "\eO4", "\eO5"
 
 #if defined USE_CARDKB
 #define KBD_TYPE  "CardKB"
+#include <Wire.h>
 #else
 #define KBD_TYPE  "USB KB"
+#include <KeyboardController.h>
 #endif
 
 // ヘッダファイル
@@ -166,6 +168,9 @@ File lst_dev;
 int lst_open = FALSE;
 #endif
 
+// 前方宣言
+void resetSystem();
+
 // Board definitions go into the "hardware" folder, if you use a board different than the
 // Arduino DUE, choose/change a file from there and replace arduino/due.h here
 #include "hardware/arduino/wioterm.h"
@@ -180,15 +185,7 @@ int lst_open = FALSE;
 #if defined CCP_INTERNAL
 #include "ccp.h"
 #endif
-
-// キーボード制御用
-#if defined USE_CARDKB
-#include <Wire.h>
-#else
-#include <KeyboardController.h>
-USBHost usb;
-KeyboardController keyboard(usb);
-#endif
+#include "romanconv.h"
 
 // 交換
 #define swap(a, b) { uint16_t t = a; a = b; b = t; }
@@ -376,6 +373,12 @@ bool hideCursor = false;
 // LCD 制御用
 static LGFX lcd;
 
+// キーボード制御用
+#if !defined USE_CARDKB
+USBHost usb;
+KeyboardController keyboard(usb);
+#endif
+
 // -----------------------------------------------------------------------------
 
 // 輝度を落とした色(太字表示に使用)の生成
@@ -401,6 +404,11 @@ static inline uint16_t RGB565dark(uint16_t col) {
   return res;
 }
 
+// システムリセット (CP/M のコールドブート)
+void resetSystem() {
+  NVIC_SystemReset();
+}
+
 #if !defined USE_CARDKB
 // イベント: キーを押した
 void keyPressed() {
@@ -423,16 +431,26 @@ void printKey() {
   needCursorUpdate = (c > 0x00) && (c < 0x80);
 #else
   c = keyboard.getKey();
-  needCursorUpdate = c;
+  int key = keyboard.getOemKey();
+  int mod = keyboard.getModifiers();
+  needCursorUpdate = (c > 0x00) && (c < 0x80);
+  if ((key == 0x29) && (mod == 4))
+    needCursorUpdate = false;
 #endif
 
   if (needCursorUpdate) {
+    if (!toKana(c))
+      return;
     xQueueSend(xQueue, &c, 0);
   } else {
     needCursorUpdate = true;
-
 #if defined USE_CARDKB
     switch (c) {
+      case 0x80:          // Fn-Esc
+        isConvert = (mask8bit & 0x80) ? !isConvert : false;
+        rLen = 0;
+        needCursorUpdate = false;
+        break;
       case 0x81:          // Fn-1 (Ctrl+!)
         printSpecialKey(KEY_CMD[KY_INS]);
         break;
@@ -485,9 +503,14 @@ void printKey() {
         needCursorUpdate = false;
     }
 #else
-    int key = keyboard.getOemKey();
-    int mod = keyboard.getModifiers();
     switch (key) {
+      case 0x29:          // Alt-Esc
+        if (mod == 4) {
+          isConvert = (mask8bit & 0x80) ? !isConvert : false;
+          rLen = 0;
+        }
+        needCursorUpdate = false;
+        break;
       case 60: // F3 (Wio Button #3)
         printSpecialKey(BTN_CMD[BT_C]);
         break;
@@ -1900,7 +1923,7 @@ void setTopAndBottomMargins(int16_t s, int16_t e) {
 
 // DECTST (Invoke Confidence Test): テスト診断を行う
 void invokeConfidenceTests(uint8_t m) {
-  NVIC_SystemReset();
+  resetSystem();
 }
 
 // "]" Operating System Command (OSC) シーケンス
@@ -2065,7 +2088,9 @@ void initScreen() {
 void setup() {
   pinMode(LED, OUTPUT);
   digitalWrite(LED, LOW);
+#if defined USE_CARDKB
   Wire.begin();    // Define(SDA, SCL)
+#endif
   DebugSerial.begin(SERIALSPD);
   delay(500);
   xQueue = xQueueCreate( QUEUE_LENGTH, sizeof( uint8_t ) );

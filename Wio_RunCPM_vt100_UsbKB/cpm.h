@@ -555,8 +555,9 @@ void _Bdos(void) {
 				++i;
 				count = 0;
 			}
-			if (chr < 0x20 || chr > 0x7E)						// Invalid character
-				continue;
+//    if (chr < 0x20 || chr > 0x7E)            // Invalid character
+      if (chr < 0x20 || ((mask8bit & 0x80) ? (chr == 0x7F) : (chr > 0x7E)))
+        continue;
 			_putcon(chr);
 			++count; _RamWrite((i + count) & 0xffff, chr);
 			if (count == c)										// Reached the expected count
@@ -597,8 +598,16 @@ void _Bdos(void) {
 		oDrive = cDrive;
 		cDrive = LOW_REGISTER(DE);
 		HL = _SelectDisk(LOW_REGISTER(DE) + 1);	// +1 here is to allow SelectDisk to be used directly by disk.h as well
-		if (!HL)
+		if (!HL) {
 			oDrive = cDrive;
+		} else {
+			if ((_RamRead(0x0004) & 0x0f) == cDrive) {
+				cDrive = oDrive = 0;
+				_RamWrite(0x0004, _RamRead(0x0004) & 0xf0);
+			} else {
+				cDrive = oDrive;
+			}
+		}
 		break;
 		/*
 		C = 15 (0Fh) : Open file
@@ -741,6 +750,7 @@ void _Bdos(void) {
 		C = 37 (25h) : Reset drive
 		*/
 	case 37:
+		roVector = roVector & ~DE;
 		break;
 		/********** Function 38: Not supported by CP/M 2.2 **********/
 		/********** Function 39: Not supported by CP/M 2.2 **********/
@@ -798,12 +808,12 @@ void _Bdos(void) {
 		HL = hostbdos(DE);
 		break;
 #if defined board_wioterm
-    /*
-    C = 232 (E8h) : Wio Terminal specific BDOS call
-    */
-  case 232:
-    HL = wiobdos(DE);
-    break;
+		/*
+		C = 232 (E8h) : Wio Terminal specific BDOS call
+		*/
+	case 232:
+		HL = wiobdos(DE);
+		break;
 #endif
 		/*
 		C = 232 (E8h) : ESP32 specific BDOS call

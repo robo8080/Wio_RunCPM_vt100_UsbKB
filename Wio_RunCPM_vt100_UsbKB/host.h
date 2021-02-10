@@ -8,6 +8,9 @@ uint16 hostbdos(uint16 dmaaddr) {
   ++i;
 
   switch (func) {
+    case 0: // Reset
+      resetSystem();
+      break;
     case 1: // CPU Speed
       return (F_CPU / 1000000L);
       break;
