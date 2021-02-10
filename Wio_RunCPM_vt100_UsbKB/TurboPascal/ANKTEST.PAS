@@ -6,7 +6,6 @@ var
   c, r, n: Integer;
 begin
   ClrScr;
-  Bdos(230, $FF);
   Writeln(LINESTR);
   write('| |');
   for c := 0 to 15 do
@@ -26,5 +25,4 @@ begin
     Writeln;
   end;
   Writeln(LINESTR);
-  Bdos(230, $7F);
 end.
