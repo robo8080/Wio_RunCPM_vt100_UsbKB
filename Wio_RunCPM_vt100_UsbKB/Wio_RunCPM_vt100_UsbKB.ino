@@ -143,8 +143,10 @@ PROGMEM const char KEY_CMD[7][CMD_LEN] = {"\eO1", "\eO2", "\x7F", "\eO4", "\eO5"
 
 #if defined USE_CARDKB
 #define KBD_TYPE  "CardKB"
+#include <Wire.h>
 #else
 #define KBD_TYPE  "USB KB"
+#include <KeyboardController.h>
 #endif
 
 // ヘッダファイル
@@ -184,15 +186,6 @@ void resetSystem();
 #include "ccp.h"
 #endif
 #include "romanconv.h"
-
-// キーボード制御用
-#if defined USE_CARDKB
-#include <Wire.h>
-#else
-#include <KeyboardController.h>
-USBHost usb;
-KeyboardController keyboard(usb);
-#endif
 
 // 交換
 #define swap(a, b) { uint16_t t = a; a = b; b = t; }
@@ -379,6 +372,12 @@ bool hideCursor = false;
 
 // LCD 制御用
 static LGFX lcd;
+
+// キーボード制御用
+#if !defined USE_CARDKB
+USBHost usb;
+KeyboardController keyboard(usb);
+#endif
 
 // -----------------------------------------------------------------------------
 
@@ -2089,7 +2088,9 @@ void initScreen() {
 void setup() {
   pinMode(LED, OUTPUT);
   digitalWrite(LED, LOW);
+#if defined USE_CARDKB
   Wire.begin();    // Define(SDA, SCL)
+#endif
   DebugSerial.begin(SERIALSPD);
   delay(500);
   xQueue = xQueueCreate( QUEUE_LENGTH, sizeof( uint8_t ) );

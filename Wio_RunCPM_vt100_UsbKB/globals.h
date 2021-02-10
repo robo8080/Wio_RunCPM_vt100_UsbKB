@@ -19,7 +19,7 @@
 #define LogName "RunCPM.log"
 
 /* RunCPM version for the greeting header */
-#define VERSION  "5.0"
+#define VERSION	"5.0"
 #define VersionBCD 0x50
 
 #define STR_HELPER(x) #x
@@ -36,8 +36,8 @@
 /* Definition of the CCP memory information */
 //
 #ifdef CCP_INTERNAL
-#define CCPname    "INTERNAL v1.7"     // Will use the CCP from ccp.h
-#define VersionCCP  0x17          // 0x10 and above reserved for Internal CCP
+#define CCPname		"INTERNAL v1.7"			// Will use the CCP from ccp.h
+#define VersionCCP	0x17					// 0x10 and above reserved for Internal CCP
 #define BatchFCB	(tmpFCB + 36)
 #define CCPaddr		(BDOSjmppage-0x0800)
 #endif
