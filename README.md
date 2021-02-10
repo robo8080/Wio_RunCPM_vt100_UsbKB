@@ -65,3 +65,5 @@ RunCPM 用のディスク (microSD) は別途用意する必要があります(�
 * Rogue のアーカイブ <https://britzl.github.io/roguearchive/>
 * CP/M 版をダウンロード＆解凍して、その中のアーカイブも解凍して、ROGUE.COM は削除して、ROGUE.CPM を ROGUE .COM にリネームする。<br><br>
 
+
+
