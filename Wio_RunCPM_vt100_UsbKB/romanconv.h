@@ -88,33 +88,18 @@ void pushKana(const uint8_t c) {
   xQueueSend(xQueue, &c, 0);
 }
 
-// 母音のインデックスを得る
-int getVowelIndex(const uint8_t c) {
-  switch (c) {
-    case 'a': return (0);
-    case 'i': return (1);
-    case 'u': return (2);
-    case 'e': return (3);
-    case 'o': return (4);
-    case 'n': return (5);
-    default: return (-1);
-  }
-}
-
+// カナ変換
 uint8_t toKana(const uint8_t ch) {
   if (!isConvert || ch < 0x20 || ch > 0x7E) {
-    // 変換中でないか範囲外
     rLen = 0;
     return (ch);
   }
   uint8_t c = CONV_TBL[ch];
   if (!c) {
-    // 変換対象の文字ではない
     rLen = 0;
     return (ch);
   }
   if ((c < 'a') || (c > 'z')) {
-    // 変換対象だがローマ字用の文字ではない
     rLen = 0;
     pushKana(c);
     return (0);
@@ -122,8 +107,17 @@ uint8_t toKana(const uint8_t ch) {
 
   if (rLen > 3) rLen = 0;
   rBuf[rLen] = 0x00;
-  int idx = getVowelIndex(c);
-
+  int idx;
+  switch (c) {
+    case 'a': idx = 0; break;
+    case 'i': idx = 1; break;
+    case 'u': idx = 2; break;
+    case 'e': idx = 3; break;
+    case 'o': idx = 4; break;
+    case 'n': idx = 5; break;
+    default: idx = -1; break;
+  }
+  
   if ((idx == -1) || ((rLen == 0) && (idx == 5))) {
     rBuf[rLen++] = c;
   } else {
