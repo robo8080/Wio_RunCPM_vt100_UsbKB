@@ -36,27 +36,29 @@
 
 //------Settings---------------------------------------------------------
 
+// スクリーン管理用
+#define RSP_W         320         // 実ピクセルスクリーン横サイズ
+#define RSP_H         240         // 実ピクセルスクリーン縦サイズ
+
 // フォント: 53 Columns (font: 6x8)
 //#include <font6x8tt.h>            // 6x8 ドットフォント (TTBASIC 付属)
 //#include "font6x8e200.h"          // 6x8 ドットフォント (SHARP PC-E200 風)
 //#include "font6x8e500.h"          // 6x8 ドットフォント (SHARP PC-E500 風)
 #include "font6x8sc1602b.h"       // 6x8 ドットフォント (SUNLIKE SC1602B 風)
-#define NORM_CH_W     6           // フォント横サイズ
-#define NORM_CH_H     8           // フォント縦サイズ
-#define NORM_SC_W     52          // キャラクタスクリーン横サイズ (<= 53)
-#define NORM_SC_H     29          // キャラクタスクリーン縦サイズ (<= 30)
+
+//#define NORM_SC_W     RSP_W / font6x8tt[0]  // キャラクタスクリーン横サイズ
+//#define NORM_SC_H     RSP_H / font6x8tt[1]  // キャラクタスクリーン縦サイズ
+#define NORM_SC_W     52                    // キャラクタスクリーン横サイズ (<= 53)
+#define NORM_SC_H     29                    // キャラクタスクリーン縦サイズ (<= 30)
 
 // フォント: 80 Columns (font: 4x8)
 //#include "font4x8misaki.h"        // 4x8 ドットフォント (美咲フォント)
 #include "font4x8yk.h"            // 4x8 ドットフォント (@ykumano)
-#define WIDE_CH_W     4           // フォント横サイズ
-#define WIDE_CH_H     8           // フォント縦サイズ
-#define WIDE_SC_W     80          // キャラクタスクリーン横サイズ (<= 80)
-#define WIDE_SC_H     29          // キャラクタスクリーン縦サイズ (<= 30)
 
-// スクリーン管理用
-#define RSP_W         320         // 実ピクセルスクリーン横サイズ
-#define RSP_H         240         // 実ピクセルスクリーン縦サイズ
+//#define WIDE_SC_W     RSP_W / font4x8tt[0]  // キャラクタスクリーン横サイズ
+//#define WIDE_SC_H     RSP_H / font4x8tt[1]  // キャラクタスクリーン縦サイズ
+#define WIDE_SC_W     80                    // キャラクタスクリーン横サイズ (<= 80)
+#define WIDE_SC_H     29                    // キャラクタスクリーン縦サイズ (<= 30)
 
 // 色
 #define FORE_COLOR    clWhite     // 初期前景色
@@ -2056,15 +2058,15 @@ void playBeep(const uint16_t Number, const uint8_t ToneNo, const uint16_t Durati
 void initScreen() {
   // 座標やサイズのプレ計算
   if (mode_ex.Flgs.Cols132) {
-    CH_W        = NORM_CH_W;               // フォント横サイズ
-    CH_H        = NORM_CH_H;               // フォント縦サイズ
+    CH_W        = font6x8tt[0];            // フォント横サイズ
+    CH_H        = font6x8tt[1];            // フォント縦サイズ
     SC_W        = NORM_SC_W;               // キャラクタスクリーン横サイズ
     SC_H        = NORM_SC_H;               // キャラクタスクリーン縦サイズ
     fontTop = (uint8_t*)font6x8tt + 3;
     isGradientBold = false;
   } else {
-    CH_W        = WIDE_CH_W;               // フォント横サイズ
-    CH_H        = WIDE_CH_H;               // フォント縦サイズ
+    CH_W        = font4x8tt[0];            // フォント横サイズ
+    CH_H        = font4x8tt[1];            // フォント縦サイズ
     SC_W        = WIDE_SC_W;               // キャラクタスクリーン横サイズ
     SC_H        = WIDE_SC_H;               // キャラクタスクリーン縦サイズ
     fontTop = (uint8_t*)font4x8tt + 3;
