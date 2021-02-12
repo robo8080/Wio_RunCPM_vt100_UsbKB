@@ -2178,7 +2178,7 @@ void setup() {
 #endif
 
   _clrscr();
-  if (font6x8tt[0] >= 8) {
+  if (SC_W < 45) {
     _puts("CP/M 2.2 Emu v" VERSION " by Marcelo Dantas\r\n");
     _puts("Arduino r/w support by Krzysztof Klis\r\n");
     _puts("     Built " __DATE__ " - " __TIME__ "\r\n");
