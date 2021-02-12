@@ -40,15 +40,9 @@
 #define RSP_W         320         // 実ピクセルスクリーン横サイズ
 #define RSP_H         240         // 実ピクセルスクリーン縦サイズ
 
-// フォント: 53 Columns (font: 6x8)
-//#include "font6x8tt.h"                        // 6x8 ドットフォント (TTBASIC 付属)
-//#include "fonts/font6x8e200.h"                // 6x8 ドットフォント (SHARP PC-E200 風)
-//#include "fonts/font6x8e500.h"                // 6x8 ドットフォント (SHARP PC-E500 風)
+// フォント: 53 Columns (font: 6x8) or 40 Columns (font: 8x8)
 #include "fonts/font6x8sc1602b.h"             // 6x8 ドットフォント (SUNLIKE SC1602B 風)
-// フォント: 40 Columns (font: 8x8)
-//#include "fonts/font8x8misaki.h"              // 8x8 ドットフォント (美咲フォント)
-//#include "fonts/font8x8misaki_2nd.h"          // 8x8 ドットフォント (美咲フォント 2nd)
-//#include "fonts/font8x8misaki_mincho.h"       // 8x8 ドットフォント (美咲フォント 明朝)
+//#include "fonts/font8x8misaki_2nd.h"          // 8x8 ドットフォント (美咲ゴシック 2nd)
 
 //#define NORM_SC_W     RSP_W / font6x8tt[0]    // キャラクタスクリーン横サイズ
 //#define NORM_SC_H     RSP_H / font6x8tt[1]    // キャラクタスクリーン縦サイズ
@@ -58,8 +52,6 @@
 //#define NORM_SC_H     29                      // キャラクタスクリーン縦サイズ (<= 30): 8x8
 
 // フォント: 80 Columns (font: 4x8)
-//#include "fonts/font4x8misaki.h"              // 4x8 ドットフォント (美咲フォント)
-//#include "fonts/font4x8misaki_2nd.h"          // 4x8 ドットフォント (美咲フォント 2nd)
 #include "fonts/font4x8yk.h"                  // 4x8 ドットフォント (@ykumano)
 
 //#define WIDE_SC_W     RSP_W / font4x8tt[0]    // キャラクタスクリーン横サイズ
