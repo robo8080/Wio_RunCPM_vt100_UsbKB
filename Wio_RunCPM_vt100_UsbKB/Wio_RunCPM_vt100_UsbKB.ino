@@ -41,25 +41,31 @@
 #define RSP_H         240         // 実ピクセルスクリーン縦サイズ
 
 // フォント: 53 Columns (font: 6x8)
+//#include "font6x8tt.h"                        // 6x8 ドットフォント (TTBASIC 付属)
+//#include "fonts/font6x8e200.h"                // 6x8 ドットフォント (SHARP PC-E200 風)
+//#include "fonts/font6x8e500.h"                // 6x8 ドットフォント (SHARP PC-E500 風)
+#include "fonts/font6x8sc1602b.h"             // 6x8 ドットフォント (SUNLIKE SC1602B 風)
 // フォント: 40 Columns (font: 8x8)
-//#include <font6x8tt.h>            // 6x8 ドットフォント (TTBASIC 付属)
-//#include "font6x8e200.h"          // 6x8 ドットフォント (SHARP PC-E200 風)
-//#include "font6x8e500.h"          // 6x8 ドットフォント (SHARP PC-E500 風)
-#include "font6x8sc1602b.h"       // 6x8 ドットフォント (SUNLIKE SC1602B 風)
+//#include "fonts/font8x8misaki.h"              // 8x8 ドットフォント (美咲フォント)
+//#include "fonts/font8x8misaki_2nd.h"          // 8x8 ドットフォント (美咲フォント 2nd)
+//#include "fonts/font8x8misaki_mincho.h"       // 8x8 ドットフォント (美咲フォント 明朝)
 
-//#define NORM_SC_W     RSP_W / font6x8tt[0]  // キャラクタスクリーン横サイズ
-//#define NORM_SC_H     RSP_H / font6x8tt[1]  // キャラクタスクリーン縦サイズ
-#define NORM_SC_W     52                    // キャラクタスクリーン横サイズ (<= 53)
-#define NORM_SC_H     29                    // キャラクタスクリーン縦サイズ (<= 30)
+//#define NORM_SC_W     RSP_W / font6x8tt[0]    // キャラクタスクリーン横サイズ
+//#define NORM_SC_H     RSP_H / font6x8tt[1]    // キャラクタスクリーン縦サイズ
+#define NORM_SC_W     52                      // キャラクタスクリーン横サイズ (<= 53): 6x8
+#define NORM_SC_H     29                      // キャラクタスクリーン縦サイズ (<= 30): 6x8
+//#define NORM_SC_W     39                      // キャラクタスクリーン横サイズ (<= 40): 8x8
+//#define NORM_SC_H     29                      // キャラクタスクリーン縦サイズ (<= 30): 8x8
 
 // フォント: 80 Columns (font: 4x8)
-//#include "font4x8misaki.h"        // 4x8 ドットフォント (美咲フォント)
-#include "font4x8yk.h"            // 4x8 ドットフォント (@ykumano)
+//#include "fonts/font4x8misaki.h"              // 4x8 ドットフォント (美咲フォント)
+//#include "fonts/font4x8misaki_2nd.h"          // 4x8 ドットフォント (美咲フォント 2nd)
+#include "fonts/font4x8yk.h"                  // 4x8 ドットフォント (@ykumano)
 
-//#define WIDE_SC_W     RSP_W / font4x8tt[0]  // キャラクタスクリーン横サイズ
-//#define WIDE_SC_H     RSP_H / font4x8tt[1]  // キャラクタスクリーン縦サイズ
-#define WIDE_SC_W     80                    // キャラクタスクリーン横サイズ (<= 80)
-#define WIDE_SC_H     29                    // キャラクタスクリーン縦サイズ (<= 30)
+//#define WIDE_SC_W     RSP_W / font4x8tt[0]    // キャラクタスクリーン横サイズ
+//#define WIDE_SC_H     RSP_H / font4x8tt[1]    // キャラクタスクリーン縦サイズ
+#define WIDE_SC_W     80                      // キャラクタスクリーン横サイズ (<= 80)
+#define WIDE_SC_H     29                      // キャラクタスクリーン縦サイズ (<= 30)
 
 // 色
 #define FORE_COLOR    clWhite     // 初期前景色
@@ -2180,18 +2186,32 @@ void setup() {
 #endif
 
   _clrscr();
-  _puts("CP/M 2.2 Emulator v" VERSION " by Marcelo Dantas\r\n");
-  _puts("Arduino read/write support by Krzysztof Klis\r\n");
-  _puts("      Built " __DATE__ " - " __TIME__ "\r\n");
-  _puts("--------------------------------------------\r\n");
-  _puts("CCP: " CCPname "    CCP Address: 0x");
-  _puthex16(CCPaddr);
-  _puts("\r\nBOARD: ");
-  _puts(BOARD);
-  _puts(" (" KBD_TYPE "/");
-  _puts((char*)String(F_CPU / 1000000L, DEC).c_str());
-  _puts("MHz)\r\n");
-
+  if (font6x8tt[0] >= 8) {
+    _puts("CP/M 2.2 Emu v" VERSION " by Marcelo Dantas\r\n");
+    _puts("Arduino r/w support by Krzysztof Klis\r\n");
+    _puts("     Built " __DATE__ " - " __TIME__ "\r\n");
+    _puts("--------------------------------------\r\n");
+    _puts("CCP: " CCPname " CCP Address: 0x");
+    _puthex16(CCPaddr);
+    _puts("\r\nBRD: ");
+    _puts(BOARD);
+    _puts("(" KBD_TYPE "/");
+    _puts((char*)String(F_CPU / 1000000L, DEC).c_str());
+    _puts("MHz)\r\n");
+  } else {
+    _puts("CP/M 2.2 Emulator v" VERSION " by Marcelo Dantas\r\n");
+    _puts("Arduino read/write support by Krzysztof Klis\r\n");
+    _puts("      Built " __DATE__ " - " __TIME__ "\r\n");
+    _puts("--------------------------------------------\r\n");
+    _puts("CCP: " CCPname "    CCP Address: 0x");
+    _puthex16(CCPaddr);
+    _puts("\r\nBOARD: ");
+    _puts(BOARD);
+    _puts(" (" KBD_TYPE "/");
+    _puts((char*)String(F_CPU / 1000000L, DEC).c_str());
+    _puts("MHz)\r\n");
+  }
+  
 #if defined board_esp32
   _puts("Initializing SPI.\r\n");
   SPI.begin(SPIINIT);
