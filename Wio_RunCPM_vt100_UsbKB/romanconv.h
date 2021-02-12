@@ -114,6 +114,10 @@ uint8_t toKana(const uint8_t ch) {
   int idx = strchr(VOWEL_TBL, c) - VOWEL_TBL;
   if ((idx < 0) || ((rLen == 0) && (idx == 5))) {
     rBuf[rLen++] = c;
+    if ((rLen == 2) && (rBuf[0] == rBuf[1])) {
+      pushKana(0xAF); // 同一子音の連続 (ッ)
+      rBuf[--rLen] = 0x00;
+    }
   } else {
     for (int i = 0; i < DIC_CNT; i++) {
       const char *arr = &CONV_DIC[i * 15];
@@ -121,9 +125,9 @@ uint8_t toKana(const uint8_t ch) {
       if (flg == 0) {
         if (arr[idx * 2 + 3]) {
           pushKana(arr[idx * 2 + 3]);
-          if (arr[14])           
+          if (arr[14])
             pushKana(arr[14]);
-          if (arr[idx * 2 + 4]) 
+          if (arr[idx * 2 + 4])
             pushKana(arr[idx * 2 + 4]);
         }
         break;
