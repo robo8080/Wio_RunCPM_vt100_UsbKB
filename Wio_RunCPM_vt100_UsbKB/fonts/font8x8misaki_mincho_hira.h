@@ -1,5 +1,5 @@
 /*
-  8x8 ドットフォント (美咲フォント 明朝 ひらがな)
+  8x8 ドットフォント (美咲明朝 ひらがな)
   https://littlelimit.net/misaki.htm
 */
 

@@ -1,5 +1,5 @@
 /*
-  4x8 ドットフォント (4x8 美咲フォント 2nd)
+  4x8 ドットフォント (4x8 美咲ゴシック 2nd)
   https://littlelimit.net/misaki.htm
 */
 
