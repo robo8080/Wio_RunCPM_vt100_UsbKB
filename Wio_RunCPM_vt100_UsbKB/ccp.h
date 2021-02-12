@@ -245,7 +245,7 @@ void _ccp_dir(void) {
 			}
 			_ccp_printfcb(tmpFCB, FALSE);
 			++fcount; ++ccount;
-			if (ccount > 2)
+			if (ccount > (SC_W / 17))
 				ccount = 0;
 		}
 	} else {
