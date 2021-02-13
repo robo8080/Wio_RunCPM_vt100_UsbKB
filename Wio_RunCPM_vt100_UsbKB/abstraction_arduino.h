@@ -493,8 +493,6 @@ uint8 _getch(void) {
 	while (!uxQueueMessagesWaiting(xQueue)) 
 		loop2();
 	xQueueReceive( xQueue, &ch, 0 );
-	if (ch)
-		Serial.println(ch);
 	return(ch);
 }
 

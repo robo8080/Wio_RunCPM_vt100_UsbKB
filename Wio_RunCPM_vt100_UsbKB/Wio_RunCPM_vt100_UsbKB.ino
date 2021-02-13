@@ -36,27 +36,28 @@
 
 //------Settings---------------------------------------------------------
 
-// フォント: 53 Columns (font: 6x8)
-//#include <font6x8tt.h>            // 6x8 ドットフォント (TTBASIC 付属)
-//#include "font6x8e200.h"          // 6x8 ドットフォント (SHARP PC-E200 風)
-//#include "font6x8e500.h"          // 6x8 ドットフォント (SHARP PC-E500 風)
-#include "font6x8sc1602b.h"       // 6x8 ドットフォント (SUNLIKE SC1602B 風)
-#define NORM_CH_W     6           // フォント横サイズ
-#define NORM_CH_H     8           // フォント縦サイズ
-#define NORM_SC_W     52          // キャラクタスクリーン横サイズ (<= 53)
-#define NORM_SC_H     29          // キャラクタスクリーン縦サイズ (<= 30)
-
-// フォント: 80 Columns (font: 4x8)
-//#include "font4x8misaki.h"        // 4x8 ドットフォント (美咲フォント)
-#include "font4x8yk.h"            // 4x8 ドットフォント (@ykumano)
-#define WIDE_CH_W     4           // フォント横サイズ
-#define WIDE_CH_H     8           // フォント縦サイズ
-#define WIDE_SC_W     80          // キャラクタスクリーン横サイズ (<= 80)
-#define WIDE_SC_H     29          // キャラクタスクリーン縦サイズ (<= 30)
-
 // スクリーン管理用
 #define RSP_W         320         // 実ピクセルスクリーン横サイズ
 #define RSP_H         240         // 実ピクセルスクリーン縦サイズ
+
+// フォント: 53 Columns (font: 6x8) or 40 Columns (font: 8x8)
+#include "fonts/font6x8sc1602b.h"             // 6x8 ドットフォント (SUNLIKE SC1602B 風)
+//#include "fonts/font8x8misaki_2nd.h"          // 8x8 ドットフォント (美咲ゴシック 2nd)
+
+//#define NORM_SC_W     RSP_W / font6x8tt[0]    // キャラクタスクリーン横サイズ
+//#define NORM_SC_H     RSP_H / font6x8tt[1]    // キャラクタスクリーン縦サイズ
+#define NORM_SC_W     52                      // キャラクタスクリーン横サイズ (<= 53): 6x8
+#define NORM_SC_H     29                      // キャラクタスクリーン縦サイズ (<= 30): 6x8
+//#define NORM_SC_W     39                      // キャラクタスクリーン横サイズ (<= 40): 8x8
+//#define NORM_SC_H     29                      // キャラクタスクリーン縦サイズ (<= 30): 8x8
+
+// フォント: 80 Columns (font: 4x8)
+#include "fonts/font4x8yk.h"                  // 4x8 ドットフォント (@ykumano)
+
+//#define WIDE_SC_W     RSP_W / font4x8tt[0]    // キャラクタスクリーン横サイズ
+//#define WIDE_SC_H     RSP_H / font4x8tt[1]    // キャラクタスクリーン縦サイズ
+#define WIDE_SC_W     80                      // キャラクタスクリーン横サイズ (<= 80)
+#define WIDE_SC_H     29                      // キャラクタスクリーン縦サイズ (<= 30)
 
 // 色
 #define FORE_COLOR    clWhite     // 初期前景色
@@ -187,9 +188,6 @@ void resetSystem();
 #endif
 #include "romanconv.h"
 
-// 交換
-#define swap(a, b) { uint16_t t = a; a = b; b = t; }
-
 // シリアル
 #if defined USE_CARDKB
 #define DebugSerial Serial
@@ -316,6 +314,7 @@ uint16_t M_TOP    = 0;        // スクロール行上限
 uint16_t M_BOTTOM;            // スクロール行下限
 
 // フォント先頭アドレス
+uint8_t* ofontTop;
 uint8_t* fontTop;
 
 // バッファ
@@ -323,6 +322,7 @@ uint8_t screen[WIDE_SC_W * WIDE_SC_H];       // スクリーンバッファ
 uint8_t attrib[WIDE_SC_W * WIDE_SC_H];       // 文字アトリビュートバッファ
 uint8_t colors[WIDE_SC_W * WIDE_SC_H];       // カラーアトリビュートバッファ
 uint8_t tabs[WIDE_SC_W];                     // タブ位置バッファ
+unsigned char fontbuf[256 * 8 + 3];          // フォントバッファ
 
 // 状態
 PROGMEM enum class em {NONE,  ES, CSI, CSI2, LSC, G0S, G1S, SVA, LC1, LC2, EGR};
@@ -378,6 +378,11 @@ static LGFX lcd;
 USBHost usb;
 KeyboardController keyboard(usb);
 #endif
+
+// マクロ
+#define swap(a, b) { uint16_t t = a; a = b; b = t; }
+#define LOBYTE(x) ((x) & 0xff)
+#define HIBYTE(x) (((x) >> 8) & 0xff)
 
 // -----------------------------------------------------------------------------
 
@@ -1109,6 +1114,16 @@ void printChar(char c) {
         case 'h':
           // カーソル表示/非表示
           textCursorEnableMode((nVals == 0) || (vals[0] == 0));
+          break;
+        case 'G':
+          // フォント書き換え
+          if (nVals > 0) 
+            generateChar(vals);
+          break;
+        case 'g':
+          // フォント復帰
+          if (nVals > 0) 
+            restoreChar(vals);
           break;
         case 'K':
           // setBaseColor
@@ -2052,35 +2067,50 @@ void playBeep(const uint16_t Number, const uint8_t ToneNo, const uint16_t Durati
   delay(20);
 }
 
+// フォント書き換え
+void generateChar(int16_t *arr) {
+  for (int i = 0; i < 8; i++)
+    fontTop[LOBYTE(arr[0]) * 8 + i] = LOBYTE(arr[i + 1]);
+}
+
+// フォント復帰
+void restoreChar(int16_t *arr) {
+  for (int i = 0; i < 8; i++)
+    fontTop[LOBYTE(arr[0]) * 8 + i] = ofontTop[LOBYTE(arr[0]) * 8 + i];
+}
+
 // スクリーン情報の初期化
 void initScreen() {
   // 座標やサイズのプレ計算
   if (mode_ex.Flgs.Cols132) {
-    CH_W        = NORM_CH_W;               // フォント横サイズ
-    CH_H        = NORM_CH_H;               // フォント縦サイズ
-    SC_W        = NORM_SC_W;               // キャラクタスクリーン横サイズ
-    SC_H        = NORM_SC_H;               // キャラクタスクリーン縦サイズ
-    fontTop = (uint8_t*)font6x8tt + 3;
-    isGradientBold = false;
+    CH_W           = font6x8tt[0];            // フォント横サイズ
+    CH_H           = font6x8tt[1];            // フォント縦サイズ
+    SC_W           = NORM_SC_W;               // キャラクタスクリーン横サイズ
+    SC_H           = NORM_SC_H;               // キャラクタスクリーン縦サイズ
+    isGradientBold = false;                   // グラデーションボールドの使用
+    ofontTop       = (uint8_t*)font6x8tt + 3; // フォントバッファ先頭アドレス
+    memcpy(fontbuf, font6x8tt, sizeof(font6x8tt));
   } else {
-    CH_W        = WIDE_CH_W;               // フォント横サイズ
-    CH_H        = WIDE_CH_H;               // フォント縦サイズ
-    SC_W        = WIDE_SC_W;               // キャラクタスクリーン横サイズ
-    SC_H        = WIDE_SC_H;               // キャラクタスクリーン縦サイズ
-    fontTop = (uint8_t*)font4x8tt + 3;
-    isGradientBold = true;
+    CH_W           = font4x8tt[0];            // フォント横サイズ
+    CH_H           = font4x8tt[1];            // フォント縦サイズ
+    SC_W           = WIDE_SC_W;               // キャラクタスクリーン横サイズ
+    SC_H           = WIDE_SC_H;               // キャラクタスクリーン縦サイズ
+    isGradientBold = true;                    // グラデーションボールドの使用
+    ofontTop       = (uint8_t*)font4x8tt + 3; // フォントバッファ先頭アドレス
+    memcpy(fontbuf, font4x8tt, sizeof(font4x8tt));
   }
-  SCSIZE      = SC_W * SC_H;        // キャラクタスクリーンサイズ
-  SP_W        = SC_W * CH_W;        // ピクセルスクリーン横サイズ
-  SP_H        = SC_H * CH_H;        // ピクセルスクリーン縦サイズ
-  MAX_CH_X    = CH_W - 1;           // フォント最大横位置
-  MAX_CH_Y    = CH_H - 1;           // フォント最大縦位置
-  MAX_SC_X    = SC_W - 1;           // キャラクタスクリーン最大横位置
-  MAX_SC_Y    = SC_H - 1;           // キャラクタスクリーン最大縦位置
-  MAX_SP_X    = SP_W - 1;           // ピクセルスクリーン最大横位置
-  MAX_SP_Y    = SP_H - 1;           // ピクセルスクリーン最大縦位置
-  MARGIN_LEFT = (RSP_W - SP_W) / 2; // 左マージン
-  MARGIN_TOP  = (RSP_H - SP_H) / 2; // 上マージン
+  fontTop     = (uint8_t*)fontbuf + 3;  // フォントバッファ先頭アドレス
+  SCSIZE      = SC_W * SC_H;            // キャラクタスクリーンサイズ
+  SP_W        = SC_W * CH_W;            // ピクセルスクリーン横サイズ
+  SP_H        = SC_H * CH_H;            // ピクセルスクリーン縦サイズ
+  MAX_CH_X    = CH_W - 1;               // フォント最大横位置
+  MAX_CH_Y    = CH_H - 1;               // フォント最大縦位置
+  MAX_SC_X    = SC_W - 1;               // キャラクタスクリーン最大横位置
+  MAX_SC_Y    = SC_H - 1;               // キャラクタスクリーン最大縦位置
+  MAX_SP_X    = SP_W - 1;               // ピクセルスクリーン最大横位置
+  MAX_SP_Y    = SP_H - 1;               // ピクセルスクリーン最大縦位置
+  MARGIN_LEFT = (RSP_W - SP_W) / 2;     // 左マージン
+  MARGIN_TOP  = (RSP_H - SP_H) / 2;     // 上マージン
   M_BOTTOM = MAX_SC_Y;
 }
 
@@ -2148,18 +2178,32 @@ void setup() {
 #endif
 
   _clrscr();
-  _puts("CP/M 2.2 Emulator v" VERSION " by Marcelo Dantas\r\n");
-  _puts("Arduino read/write support by Krzysztof Klis\r\n");
-  _puts("      Built " __DATE__ " - " __TIME__ "\r\n");
-  _puts("--------------------------------------------\r\n");
-  _puts("CCP: " CCPname "    CCP Address: 0x");
-  _puthex16(CCPaddr);
-  _puts("\r\nBOARD: ");
-  _puts(BOARD);
-  _puts(" (" KBD_TYPE "/");
-  _puts((char*)String(F_CPU / 1000000L, DEC).c_str());
-  _puts("MHz)\r\n");
-
+  if (SC_W < 45) {
+    _puts("CP/M 2.2 Emu v" VERSION " by Marcelo Dantas\r\n");
+    _puts("Arduino r/w support by Krzysztof Klis\r\n");
+    _puts("     Built " __DATE__ " - " __TIME__ "\r\n");
+    _puts("--------------------------------------\r\n");
+    _puts("CCP: " CCPname " CCP Address: 0x");
+    _puthex16(CCPaddr);
+    _puts("\r\nBRD: ");
+    _puts(BOARD);
+    _puts("(" KBD_TYPE "/");
+    _puts((char*)String(F_CPU / 1000000L, DEC).c_str());
+    _puts("MHz)\r\n");
+  } else {
+    _puts("CP/M 2.2 Emulator v" VERSION " by Marcelo Dantas\r\n");
+    _puts("Arduino read/write support by Krzysztof Klis\r\n");
+    _puts("      Built " __DATE__ " - " __TIME__ "\r\n");
+    _puts("--------------------------------------------\r\n");
+    _puts("CCP: " CCPname "    CCP Address: 0x");
+    _puthex16(CCPaddr);
+    _puts("\r\nBOARD: ");
+    _puts(BOARD);
+    _puts(" (" KBD_TYPE "/");
+    _puts((char*)String(F_CPU / 1000000L, DEC).c_str());
+    _puts("MHz)\r\n");
+  }
+  
 #if defined board_esp32
   _puts("Initializing SPI.\r\n");
   SPI.begin(SPIINIT);
