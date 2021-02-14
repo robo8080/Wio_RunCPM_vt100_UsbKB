@@ -69,8 +69,8 @@ static lgfx::Panel_ILI9341 panel;
 #define USE_EGR                   // EGR 拡張
 
 // キーボードタイプ
-#define USE_USBKB                 // USB Keyboard を使う
-//#define USE_CARDKB                // CardKB を使う
+//#define USE_USBKB                 // USB Keyboard を使う
+#define USE_CARDKB                // CardKB を使う
 
 // CrdKB I2C アドレス
 #define CARDKB_ADDR   0x5F
@@ -115,6 +115,8 @@ PROGMEM const char BTN_CMD[3][CMD_LEN] = {"\eOT", "\eOS", "\eOR"};
 // 特殊キー情報
 enum SP_KEY {KY_HOME, KY_INS, KY_DEL, KY_END, KY_PGUP, KY_PGDOWN};
 PROGMEM const char KEY_CMD[7][CMD_LEN] = {"\eO1", "\eO2", "\x7F", "\eO4", "\eO5", "\eO6"};
+// ローテーションテーブル
+PROGMEM const int ROT_TBL[4][4] = {{0, 1, 2, 3}, {3, 2, 0, 1}, {1, 0, 3, 2}, {2, 3, 1, 0}};
 
 /*********************************************
   ・キーボードと Wio Terminal のボタンとスイッチの対応
@@ -2117,7 +2119,7 @@ void initScreen(uint8_t r) {
 
   TC.stopTimer();
   lcd.setRotation(r2);
-  
+
   if (!mode_ex.Flgs.Cols132) {
     // 80 cols
     CH_W           = font4x8tt[0];            // フォント横サイズ
@@ -2159,7 +2161,7 @@ void initScreen(uint8_t r) {
   MARGIN_LEFT = (RSP_W - SP_W) / 2;     // 左マージン
   MARGIN_TOP  = (RSP_H - SP_H) / 2;     // 上マージン
   M_BOTTOM = MAX_SC_Y;
-  
+
   TC.restartTimer(TIMER_PERIOD);
 }
 
@@ -2177,7 +2179,7 @@ void setup() {
 #if defined USE_CARDKB
   Wire.begin();    // Define(SDA, SCL)
 #endif
-  DebugSerial.begin(SERIALSPD);  
+  DebugSerial.begin(SERIALSPD);
   delay(500);
   xQueue = xQueueCreate( QUEUE_LENGTH, sizeof( uint8_t ) );
 
@@ -2211,7 +2213,7 @@ void setup() {
     pinMode(BTN_PORT[i], INPUT_PULLUP);
 
   // カーソル用タイマーの設定
-  TC.startTimer(TIMER_PERIOD, handle_timer); 
+  TC.startTimer(TIMER_PERIOD, handle_timer);
 
   // ブザーの初期化
   pinMode(SPK_PIN, OUTPUT);
@@ -2335,7 +2337,8 @@ void loop2() {
       prev_sw[i] = true;
     } else {
       if (prev_sw[i]) {
-        printSpecialKey(SW_CMD[i]);
+        int v = (i == SW_PRESS) ? SW_PRESS : ROT_TBL[ROTATION_ANGLE][i];
+        printSpecialKey(SW_CMD[v]);
         needCursorUpdate = true;
       }
       prev_sw[i] = false;
