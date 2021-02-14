@@ -103,10 +103,10 @@ uint16_t ROTATION_ANGLE = 0;  // 画面回転 (0..3)
 // コマンドの長さ
 PROGMEM const int CMD_LEN = 5;
 // スイッチ情報
-PROGMEM const int SW_PORT[5] = {WIO_5S_UP, WIO_5S_DOWN, WIO_5S_RIGHT, WIO_5S_LEFT, WIO_5S_PRESS};
+PROGMEM const int SW_PORT[5] = {WIO_5S_UP, WIO_5S_LEFT, WIO_5S_RIGHT, WIO_5S_DOWN, WIO_5S_PRESS};
 bool prev_sw[5] = {false, false, false, false, false};
-enum WIO_SW {SW_UP, SW_DOWN, SW_RIGHT, SW_LEFT, SW_PRESS};
-PROGMEM const char SW_CMD[5][CMD_LEN] = {"\eOA", "\eOB", "\eOC", "\eOD", "\r"};
+enum WIO_SW {SW_UP, SW_LEFT, SW_RIGHT, SW_DOWN, SW_PRESS};
+PROGMEM const char SW_CMD[5][CMD_LEN] = {"\eOA", "\eOD", "\eOC", "\eOB", "\r"};
 // ボタン情報
 PROGMEM const int BTN_PORT[3] = {WIO_KEY_A, WIO_KEY_B, WIO_KEY_C};
 bool prev_btn[3] = {false, false, false};
@@ -116,7 +116,7 @@ PROGMEM const char BTN_CMD[3][CMD_LEN] = {"\eOT", "\eOS", "\eOR"};
 enum SP_KEY {KY_HOME, KY_INS, KY_DEL, KY_END, KY_PGUP, KY_PGDOWN};
 PROGMEM const char KEY_CMD[7][CMD_LEN] = {"\eO1", "\eO2", "\x7F", "\eO4", "\eO5", "\eO6"};
 // ローテーションテーブル
-PROGMEM const int ROT_TBL[4][4] = {{0, 1, 2, 3}, {3, 2, 0, 1}, {1, 0, 3, 2}, {2, 3, 1, 0}};
+PROGMEM const int ROT_TBL[4][4] = {{0, 1, 2, 3}, {1, 3, 0, 2}, {3, 2, 1, 0}, {2, 0, 3, 1}};
 
 /*********************************************
   ・キーボードと Wio Terminal のボタンとスイッチの対応
@@ -2333,12 +2333,12 @@ void loop2() {
 
   // スイッチ
   for (int i = 0; i < 5; i++) {
+    if (!(j2k.value & (1 << (i + 3)))) continue;
     if (digitalRead(SW_PORT[i]) == LOW) {
       prev_sw[i] = true;
     } else {
       if (prev_sw[i]) {
-        int v = (i == SW_PRESS) ? SW_PRESS : ROT_TBL[ROTATION_ANGLE][i];
-        printSpecialKey(SW_CMD[v]);
+        printSpecialKey(SW_CMD[(i == SW_PRESS) ? SW_PRESS : ROT_TBL[ROTATION_ANGLE][i]]);
         needCursorUpdate = true;
       }
       prev_sw[i] = false;
@@ -2347,6 +2347,7 @@ void loop2() {
 
   // ボタン
   for (int i = 0; i < 3; i++) {
+    if (!(j2k.value & (1 << i))) continue;
     if (digitalRead(BTN_PORT[i]) == LOW) {
       prev_btn[i] = true;
     } else {

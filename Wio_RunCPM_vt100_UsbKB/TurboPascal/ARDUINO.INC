@@ -7,7 +7,7 @@ const
 
   LOW  = 0;
   HIGH = 1;
-
+  
   function systemFrequency: Integer;
   var
     func: Byte;
@@ -58,6 +58,25 @@ const
   begin
     hostOS := BDosHL(225, (pin shl 8) + value);
   end; {of function hostOS}
+
+  function getJoy2Key: Byte;
+  var
+    func: Byte;
+    HL: Integer;
+  begin
+    func := $02; { Func }
+    getJoy2Key := BDosHL(232, Addr(func)); { boardbdos }
+  end; {of function getDate}
+
+  procedure setJoy2Key(Mode: Byte);
+  var
+    func: array [0..1] of Byte;
+    HL: Integer;
+  begin
+    func[0] := $03; { Func }
+    func[1] := Mode; { Param }
+    BDos(232, Addr(func[0]));
+  end; {of procedure setJoy2Key}
 
   procedure getDate(var y: Integer; var m, d: byte);
   var

@@ -13,9 +13,29 @@ SdFat SD;
 #define board_analog_io
 #define board_digital_io
 
+// ジョイスティック用
+struct TJ2K {
+  uint8_t BtnA : 1;   // 1
+  uint8_t BtnB : 1;   // 2
+  uint8_t BtnC : 1;   // 3
+  uint8_t Up : 1;     // 4
+  uint8_t Left : 1;   // 5
+  uint8_t Right : 1;  // 6
+  uint8_t Down : 1;   // 7
+  uint8_t Press : 1;  // 8
+};
+
+union J2K {
+  uint8_t value;
+  struct TJ2K Bits;
+};
+
+PROGMEM const uint8_t defaultj2k = 0b11111111;
+
 QueueHandle_t xQueue;
 RTC_SAMD51 rtc;
 DateTime now;
+union J2K j2k = {defaultj2k};
 
 uint16 wiobdos(uint16 dmaaddr) {
 
@@ -26,6 +46,14 @@ uint16 wiobdos(uint16 dmaaddr) {
   ++i;
 
   switch (func) {
+    case 2: // 2 (02h): get Joy to Key
+      HL = j2k.value;
+      return(HL);
+      break;
+    case 3: // 3 (03h): set Joy to Key
+      j2k.value = _RamRead(i);
+      return(HL);
+      break;
     case 42: // 42 (2Ah): get date
       param = _RamRead(i);
       ++i;
