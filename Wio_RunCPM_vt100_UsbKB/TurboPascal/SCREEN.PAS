@@ -1,4 +1,5 @@
 program SCREEN;
+{$I ARDUINO.INC}
 var
   Mode, v, i: Integer;
 begin
@@ -10,20 +11,19 @@ begin
       if i = 0 then
         begin
           if (v < 0) then v := 0;
-          if (v > 7) then v := 7;
-          Mode := v;
+          Mode := v and $1F;
         end
       else
         Mode := 0;  
     end;  
 
-  { +---+---------+----------+-------+ }
-  { |   |bit2     |bit1      |bit0   | }
-  { +---+---------+----------+-------+ }
-  { | 0 |Block    |ADM-3A OFF|53 Cols| }
-  { +---+---------+----------+-------+ }
-  { | 1 |Underline|ADM-3A ON |80 Cols| }
-  { +---+---------+----------+-------+ }
+  { +---+----+----+---------+----------+-------+ }
+  { |   |bit4|bit3|bit2     |bit1      |bit0   | }
+  { +---+----+----+---------+----------+-------+ }
+  { | 0 |Screen   |  Block  |ADM-3A OFF|53 Cols| }
+  { +---+ Rotation+---------+----------+-------+ }
+  { | 1 |  (0..3) |Underline|ADM-3A ON |80 Cols| }
+  { +---+---------+---------+----------+-------+ }
 
   if (Mode and 4) = 4 then
     Write(#$1b'[34h')  { Underline Cursor Mode }
@@ -37,4 +37,7 @@ begin
     Write(#$1b'[?3l')  { 80 Cols               }
   else
     Write(#$1b'[?3h'); { 53 Cols               }
+  v := (Mode shr 3) and 3;
+  if getRotation <> v then
+    setRotation(v);
 end.

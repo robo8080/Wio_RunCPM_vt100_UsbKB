@@ -34,30 +34,31 @@
 // https://github.com/Seeed-Studio/Seeed_Arduino_RTC
 #include "DateTime.h"
 
-//------Settings---------------------------------------------------------
+//------LovyanGFX--------------------------------------------------------
 
-// スクリーン管理用
-#define RSP_W         320         // 実ピクセルスクリーン横サイズ
-#define RSP_H         240         // 実ピクセルスクリーン縦サイズ
+static LGFX lcd;
+static lgfx::Panel_ILI9341 panel;
+
+//------Settings---------------------------------------------------------
 
 // フォント: 53 Columns (font: 6x8) or 40 Columns (font: 8x8)
 #include "fonts/font6x8sc1602b.h"             // 6x8 ドットフォント (SUNLIKE SC1602B 風)
 //#include "fonts/font8x8misaki_2nd.h"          // 8x8 ドットフォント (美咲ゴシック 2nd)
-
-//#define NORM_SC_W     RSP_W / font6x8tt[0]    // キャラクタスクリーン横サイズ
-//#define NORM_SC_H     RSP_H / font6x8tt[1]    // キャラクタスクリーン縦サイズ
-#define NORM_SC_W     52                      // キャラクタスクリーン横サイズ (<= 53): 6x8
-#define NORM_SC_H     29                      // キャラクタスクリーン縦サイズ (<= 30): 6x8
-//#define NORM_SC_W     39                      // キャラクタスクリーン横サイズ (<= 40): 8x8
-//#define NORM_SC_H     29                      // キャラクタスクリーン縦サイズ (<= 30): 8x8
+// 横画面時: (53 or 40 - NORM_MARGINH_X) x (40 - NORM_MARGINH_Y)
+#define NORM_MARGINH_X  1         // マージン文字数 (横)
+#define NORM_MARGINH_Y  1         // マージン文字数 (縦)
+// 縦画面時: (40 or 30 - NORM_MARGINV_X) x (40 - NORM_MARGINV_Y)
+#define NORM_MARGINV_X  1         // マージン文字数 (横)
+#define NORM_MARGINV_Y  1         // マージン文字数 (縦)
 
 // フォント: 80 Columns (font: 4x8)
-#include "fonts/font4x8yk.h"                  // 4x8 ドットフォント (@ykumano)
-
-//#define WIDE_SC_W     RSP_W / font4x8tt[0]    // キャラクタスクリーン横サイズ
-//#define WIDE_SC_H     RSP_H / font4x8tt[1]    // キャラクタスクリーン縦サイズ
-#define WIDE_SC_W     80                      // キャラクタスクリーン横サイズ (<= 80)
-#define WIDE_SC_H     29                      // キャラクタスクリーン縦サイズ (<= 30)
+#include "fonts/font4x8yk.h"                    // 4x8 ドットフォント (@ykumano)
+// 横画面時: (80 - WIDE_MARGINH_X) x (40 - WIDE_MARGINH_Y)
+#define WIDE_MARGINH_X  0         // マージン文字数 (横)
+#define WIDE_MARGINH_Y  1         // マージン文字数 (縦)
+// 縦画面時: (60 - WIDE_MARGINV_X) x (40 - WIDE_MARGINV_Y)
+#define WIDE_MARGINV_X  1         // マージン文字数 (横)
+#define WIDE_MARGINV_Y  1         // マージン文字数 (縦)
 
 // 色
 #define FORE_COLOR    clWhite     // 初期前景色
@@ -74,24 +75,30 @@
 // CrdKB I2C アドレス
 #define CARDKB_ADDR   0x5F
 
+// デバッグ出力
+//#define USE_DEBUGPRINT
+
 //-----------------------------------------------------------------------
 
 // スクリーンプレ計算用
-uint16_t CH_W;                // フォント横サイズ
-uint16_t CH_H;                // フォント縦サイズ
-uint16_t SC_W;                // キャラクタスクリーン横サイズ
-uint16_t SC_H;                // キャラクタスクリーン縦サイズ
-uint16_t SCSIZE;              // キャラクタスクリーンサイズ
-uint16_t SP_W;                // ピクセルスクリーン横サイズ
-uint16_t SP_H;                // ピクセルスクリーン縦サイズ
-uint16_t MAX_CH_X;            // フォント最大横位置
-uint16_t MAX_CH_Y;            // フォント最大縦位置
-uint16_t MAX_SC_X;            // キャラクタスクリーン最大横位置
-uint16_t MAX_SC_Y;            // キャラクタスクリーン最大縦位置
-uint16_t MAX_SP_X;            // ピクセルスクリーン最大横位置
-uint16_t MAX_SP_Y;            // ピクセルスクリーン最大縦位置
-uint16_t MARGIN_LEFT;         // 左マージン
-uint16_t MARGIN_TOP;          // 上マージン
+uint16_t RSP_W;               // 実スクリーン横サイズ (px)
+uint16_t RSP_H;               // 実スクリーン横サイズ (px)
+uint16_t CH_W;                // フォント横サイズ (px)
+uint16_t CH_H;                // フォント縦サイズ (px)
+uint16_t SC_W;                // スクリーン横サイズ (char)
+uint16_t SC_H;                // スクリーン縦サイズ (char)
+uint16_t SCSIZE;              // スクリーン要素数 (char)
+uint16_t SP_W;                // 有効スクリーン横サイズ (px)
+uint16_t SP_H;                // 有効スクリーン横サイズ (px)
+uint16_t MAX_CH_X;            // フォント最大横位置 (px)
+uint16_t MAX_CH_Y;            // フォント最大縦位置 (px)
+uint16_t MAX_SC_X;            // スクリーン最大横位置 (char)
+uint16_t MAX_SC_Y;            // スクリーン最大縦位置 (char)
+uint16_t MAX_SP_X;            // スクリーン最大横位置 (px)
+uint16_t MAX_SP_Y;            // スクリーン最大縦位置 (px)
+uint16_t MARGIN_LEFT;         // 左マージン (px)
+uint16_t MARGIN_TOP;          // 上マージン (px)
+uint16_t ROTATION_ANGLE = 0;  // 画面回転 (0..3)
 
 // コマンドの長さ
 PROGMEM const int CMD_LEN = 5;
@@ -188,12 +195,13 @@ void resetSystem();
 #endif
 #include "romanconv.h"
 
-// シリアル
+// デバッグシリアル
 #if defined USE_CARDKB
 #define DebugSerial Serial
 #else
 #define DebugSerial Serial1
 #endif
+
 #define SERIALSPD 115200
 
 // LED 制御用ピン
@@ -318,11 +326,11 @@ uint8_t* ofontTop;
 uint8_t* fontTop;
 
 // バッファ
-uint8_t screen[WIDE_SC_W * WIDE_SC_H];       // スクリーンバッファ
-uint8_t attrib[WIDE_SC_W * WIDE_SC_H];       // 文字アトリビュートバッファ
-uint8_t colors[WIDE_SC_W * WIDE_SC_H];       // カラーアトリビュートバッファ
-uint8_t tabs[WIDE_SC_W];                     // タブ位置バッファ
-unsigned char fontbuf[256 * 8 + 3];          // フォントバッファ
+uint8_t screen[80 * 30];            // スクリーンバッファ
+uint8_t attrib[80 * 30];            // 文字アトリビュートバッファ
+uint8_t colors[80 * 30];            // カラーアトリビュートバッファ
+uint8_t tabs[80];                   // タブ位置バッファ
+unsigned char fontbuf[256 * 8 + 3]; // フォントバッファ
 
 // 状態
 PROGMEM enum class em {NONE,  ES, CSI, CSI2, LSC, G0S, G1S, SVA, LC1, LC2, EGR};
@@ -369,9 +377,7 @@ int16_t vals[10] = {};
 // カーソル描画用
 bool needCursorUpdate = false;
 bool hideCursor = false;
-
-// LCD 制御用
-static LGFX lcd;
+PROGMEM const unsigned long TIMER_PERIOD = 200000; // 200ms
 
 // キーボード制御用
 #if !defined USE_CARDKB
@@ -1117,12 +1123,12 @@ void printChar(char c) {
           break;
         case 'G':
           // フォント書き換え
-          if (nVals > 0) 
+          if (nVals > 0)
             generateChar(vals);
           break;
         case 'g':
           // フォント復帰
-          if (nVals > 0) 
+          if (nVals > 0)
             restoreChar(vals);
           break;
         case 'K':
@@ -1339,12 +1345,16 @@ void restoreCursor() {
 
 // DECKPAM (Keypad Application Mode): アプリケーションキーパッドモードにセット
 void keypadApplicationMode() {
+#if defined USE_DEBUGPRINT
   DebugSerial.println(F("Unimplement: keypadApplicationMode"));
+#endif
 }
 
 // DECKPNM (Keypad Numeric Mode): 数値キーパッドモードにセット
 void keypadNumericMode() {
+#if defined USE_DEBUGPRINT
   DebugSerial.println(F("Unimplement: keypadNumericMode"));
+#endif
 }
 
 // IND (Index): カーソルを一行下へ移動
@@ -1600,9 +1610,7 @@ void adm3aMode(bool m) {
 // DECCOLM (Select 80 or 132 Columns per Page): カラムサイズ変更
 void columnMode(bool m) {
   mode_ex.Flgs.Cols132 = m;
-  initScreen();
-  resetToInitialState();
-  setCursorToHome();
+  initScreenEx(ROTATION_ANGLE);
 }
 
 // DECSCNM (Screen Mode): 画面反転モード
@@ -1643,8 +1651,10 @@ void setMode(int16_t *vals, int16_t nVals) {
         adm3aMode(true);
         break;
       default:
+#if defined USE_DEBUGPRINT
         DebugSerial.print(F("Unimplement: setMode "));
         DebugSerial.println(String(vals[i], DEC));
+#endif
         break;
     }
   }
@@ -1671,8 +1681,10 @@ void decSetMode(int16_t *vals, int16_t nVals) {
         textCursorEnableMode(true);
         break;
       default:
+#if defined USE_DEBUGPRINT
         DebugSerial.print(F("Unimplement: decSetMode "));
         DebugSerial.println(String(vals[i], DEC));
+#endif
         break;
     }
   }
@@ -1695,8 +1707,10 @@ void resetMode(int16_t *vals, int16_t nVals) {
         adm3aMode(false);
         break;
       default:
+#if defined USE_DEBUGPRINT
         DebugSerial.print(F("Unimplement: resetMode "));
         DebugSerial.println(String(vals[i], DEC));
+#endif
         break;
     }
   }
@@ -1723,8 +1737,10 @@ void decResetMode(int16_t *vals, int16_t nVals) {
         textCursorEnableMode(false);
         break;
       default:
+#if defined USE_DEBUGPRINT
         DebugSerial.print(F("Unimplement: decResetMode "));
         DebugSerial.println(String(vals[i], DEC));
+#endif
         break;
     }
   }
@@ -1949,22 +1965,30 @@ void invokeConfidenceTests(uint8_t m) {
 
 // DECDHL (Double Height Line): カーソル行を倍高、倍幅、トップハーフへ変更
 void doubleHeightLine_TopHalf() {
+#if defined USE_DEBUGPRINT
   DebugSerial.println(F("Unimplement: doubleHeightLine_TopHalf"));
+#endif
 }
 
 // DECDHL (Double Height Line): カーソル行を倍高、倍幅、ボトムハーフへ変更
 void doubleHeightLine_BotomHalf() {
+#if defined USE_DEBUGPRINT
   DebugSerial.println(F("Unimplement: doubleHeightLine_BotomHalf"));
+#endif
 }
 
 // DECSWL (Single-width Line): カーソル行を単高、単幅へ変更
 void singleWidthLine() {
+#if defined USE_DEBUGPRINT
   DebugSerial.println(F("Unimplement: singleWidthLine"));
+#endif
 }
 
 // DECDWL (Double-Width Line): カーソル行を単高、倍幅へ変更
 void doubleWidthLine() {
+#if defined USE_DEBUGPRINT
   DebugSerial.println(F("Unimplement: doubleWidthLine"));
+#endif
 }
 
 // DECALN (Screen Alignment Display): 画面を文字‘E’で埋める
@@ -1982,7 +2006,9 @@ void screenAlignmentDisplay() {
 
 // G0 文字コードの設定
 void setG0charset(char c) {
+#if defined USE_DEBUGPRINT
   DebugSerial.println(F("Unimplement: setG0charset"));
+#endif
 }
 
 // "(" G1 Sets Sequence
@@ -1990,7 +2016,9 @@ void setG0charset(char c) {
 
 // G1 文字コードの設定
 void setG1charset(char c) {
+#if defined USE_DEBUGPRINT
   DebugSerial.println(F("Unimplement: setG1charset"));
+#endif
 }
 
 // "G" SVA Sets Sequence
@@ -2032,10 +2060,12 @@ void unknownSequence(em m, char c) {
       s = s + " %";
       break;
   }
+#if defined USE_DEBUGPRINT
   DebugSerial.print(F("Unknown: "));
   DebugSerial.print(s);
   DebugSerial.print(F(" "));
   DebugSerial.print(c);
+#endif
 }
 
 // タイマーハンドラ
@@ -2080,29 +2110,46 @@ void restoreChar(int16_t *arr) {
 }
 
 // スクリーン情報の初期化
-void initScreen() {
-  // 座標やサイズのプレ計算
-  if (mode_ex.Flgs.Cols132) {
-    CH_W           = font6x8tt[0];            // フォント横サイズ
-    CH_H           = font6x8tt[1];            // フォント縦サイズ
-    SC_W           = NORM_SC_W;               // キャラクタスクリーン横サイズ
-    SC_H           = NORM_SC_H;               // キャラクタスクリーン縦サイズ
-    isGradientBold = false;                   // グラデーションボールドの使用
-    ofontTop       = (uint8_t*)font6x8tt + 3; // フォントバッファ先頭アドレス
-    memcpy(fontbuf, font6x8tt, sizeof(font6x8tt));
-  } else {
+void initScreen(uint8_t r) {
+  // r:  0=0°, 1=90°, 2=180°, 0=270°
+  uint8_t r2 = (r + 5) % 4;
+  // r2: 0=270°, 1=0°, 2=90°, 3=180°
+
+  TC.stopTimer();
+  lcd.setRotation(r2);
+  
+  if (!mode_ex.Flgs.Cols132) {
+    // 80 cols
     CH_W           = font4x8tt[0];            // フォント横サイズ
     CH_H           = font4x8tt[1];            // フォント縦サイズ
-    SC_W           = WIDE_SC_W;               // キャラクタスクリーン横サイズ
-    SC_H           = WIDE_SC_H;               // キャラクタスクリーン縦サイズ
     isGradientBold = true;                    // グラデーションボールドの使用
     ofontTop       = (uint8_t*)font4x8tt + 3; // フォントバッファ先頭アドレス
     memcpy(fontbuf, font4x8tt, sizeof(font4x8tt));
+  } else {
+    // 53/40 cols
+    CH_W           = font6x8tt[0];            // フォント横サイズ
+    CH_H           = font6x8tt[1];            // フォント縦サイズ
+    isGradientBold = false;                   // グラデーションボールドの使用
+    ofontTop       = (uint8_t*)font6x8tt + 3; // フォントバッファ先頭アドレス
+    memcpy(fontbuf, font6x8tt, sizeof(font6x8tt));
   }
   fontTop     = (uint8_t*)fontbuf + 3;  // フォントバッファ先頭アドレス
-  SCSIZE      = SC_W * SC_H;            // キャラクタスクリーンサイズ
-  SP_W        = SC_W * CH_W;            // ピクセルスクリーン横サイズ
-  SP_H        = SC_H * CH_H;            // ピクセルスクリーン縦サイズ
+  RSP_W       = (r2 % 2 == 1) ? panel.panel_height : panel.panel_width;
+  RSP_H       = (r2 % 2 == 1) ? panel.panel_width : panel.panel_height;
+  SC_W        = RSP_W / CH_W;
+  SC_H        = RSP_H / CH_H;
+  if (!mode_ex.Flgs.Cols132) {
+    // 80 cols
+    SC_W -= (r2 % 2 == 1) ? WIDE_MARGINH_X : WIDE_MARGINV_X;
+    SC_H -= (r2 % 2 == 1) ? WIDE_MARGINH_Y : WIDE_MARGINV_Y;
+  } else {
+    // 53/40 cols
+    SC_W -= (r2 % 2 == 1) ? NORM_MARGINH_X : NORM_MARGINV_X;
+    SC_H -= (r2 % 2 == 1) ? NORM_MARGINH_Y : NORM_MARGINV_Y;
+  }
+  SCSIZE      = SC_W * SC_H;            // スクリーン要素数 (char)
+  SP_W        = SC_W * CH_W;            // 有効ピクセルスクリーン横サイズ
+  SP_H        = SC_H * CH_H;            // 有効ピクセルスクリーン縦サイズ
   MAX_CH_X    = CH_W - 1;               // フォント最大横位置
   MAX_CH_Y    = CH_H - 1;               // フォント最大縦位置
   MAX_SC_X    = SC_W - 1;               // キャラクタスクリーン最大横位置
@@ -2112,6 +2159,15 @@ void initScreen() {
   MARGIN_LEFT = (RSP_W - SP_W) / 2;     // 左マージン
   MARGIN_TOP  = (RSP_H - SP_H) / 2;     // 上マージン
   M_BOTTOM = MAX_SC_Y;
+  
+  TC.restartTimer(TIMER_PERIOD);
+}
+
+// スクリーン情報の初期化
+void initScreenEx(uint8_t r) {
+  setCursorToHome();
+  initScreen(r);
+  resetToInitialState();
 }
 
 // セットアップ
@@ -2121,7 +2177,7 @@ void setup() {
 #if defined USE_CARDKB
   Wire.begin();    // Define(SDA, SCL)
 #endif
-  DebugSerial.begin(SERIALSPD);
+  DebugSerial.begin(SERIALSPD);  
   delay(500);
   xQueue = xQueueCreate( QUEUE_LENGTH, sizeof( uint8_t ) );
 
@@ -2140,12 +2196,8 @@ void setup() {
   // LCD の初期化
   lcd.init();
   lcd.startWrite();
-  lcd.setRotation(1);
   lcd.setColorDepth(16);
-
-  initScreen();
-  resetToInitialState();
-  setCursorToHome();
+  initScreenEx(ROTATION_ANGLE);
 
   // RTC の初期化
   rtc.begin();
@@ -2159,15 +2211,17 @@ void setup() {
     pinMode(BTN_PORT[i], INPUT_PULLUP);
 
   // カーソル用タイマーの設定
-  TC.startTimer(200000, handle_timer); // 200ms
+  TC.startTimer(TIMER_PERIOD, handle_timer); 
 
   // ブザーの初期化
   pinMode(SPK_PIN, OUTPUT);
 
 #if !defined USE_CARDKB
   // キーボードの初期化
+#if defined USE_DEBUGPRINT
   if (usb.Init())
     DebugSerial.println(F("USB host did not start."));
+#endif
   delay(20);
   digitalWrite(PIN_USB_HOST_ENABLE, LOW);
   digitalWrite(OUTPUT_CTR_5V, HIGH);
@@ -2203,7 +2257,7 @@ void setup() {
     _puts((char*)String(F_CPU / 1000000L, DEC).c_str());
     _puts("MHz)\r\n");
   }
-  
+
 #if defined board_esp32
   _puts("Initializing SPI.\r\n");
   SPI.begin(SPIINIT);

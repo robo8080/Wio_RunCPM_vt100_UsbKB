@@ -82,7 +82,7 @@ const
     getDayOfTheWeek := BDosHL(232, Addr(func[0]));
   end; {of function getDayOfTheWeek}
 
-  procedure setDate(y: Integer; m, d: byte);
+  procedure setDate(y: Integer; m, d: Byte);
   var
     func: array [0..4] of Byte;
   begin
@@ -97,7 +97,7 @@ const
     BDos(232, Addr(func[0]));
   end; {of procedure setDate}
 
-  procedure getTime(var h, m, s: byte);
+  procedure getTime(var h, m, s: Byte);
   var
     func: array [0..1] of Byte;
     HL: Integer;
@@ -112,7 +112,7 @@ const
     s  := HL shr 8;
   end; {of procedure getTime}
 
-  procedure setTime(h, m, s: byte);
+  procedure setTime(h, m, s: Byte);
   var
     func: array [0..4] of Byte;
   begin
@@ -126,3 +126,20 @@ const
     func[3] := 0;   { Data }
     BDos(232, Addr(func[0]));
   end; {of procedure setTime}
+
+  function getRotation: Integer;
+  var
+    func: Byte;
+  begin
+    func := 8;
+    getRotation := BDosHL(231, Addr(func)); { hostbdos }
+  end; {of function getRotation}
+
+  procedure setRotation(m: Byte);
+  var
+    func: array [0..1] of Byte;
+  begin
+    func[0] := 9;
+    func[1] := m;
+    BDos(231, Addr(func)); { hostbdos }
+  end; {of procedure setRotation}
