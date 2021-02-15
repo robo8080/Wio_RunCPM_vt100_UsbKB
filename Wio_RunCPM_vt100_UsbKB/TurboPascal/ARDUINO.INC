@@ -8,13 +8,7 @@ const
   LOW  = 0;
   HIGH = 1;
   
-  function systemFrequency: Integer;
-  var
-    func: Byte;
-  begin
-    func := 1;
-    systemFrequency := BDosHL(231, Addr(func)); { hostbdos }
-  end; {of function systemFrequency}
+  function systemFrequency:Integer; Forward;
 
   procedure Delay2(v: Integer);
   var
@@ -29,35 +23,34 @@ const
     Delay(i);
   end; {of procedure Delay2}
 
-  procedure pinMode(pin, mode: Byte);
-  begin
-    Bdos(220, (pin shl 8) + mode);
-  end; {of procedure pinMode}
+  (*** Host BDOS ***)
 
-  function digitalRead(pin: Byte): Byte;
+  function systemFrequency;
+  var
+    func: Byte;
   begin
-    digitalRead := BDos(221, (pin shl 8));
-  end; {of function digitalRead}
+    func := 1;
+    systemFrequency := BDosHL(231, Addr(func)); { hostbdos }
+  end; {of function systemFrequency}
 
-  procedure digitalWrite(pin, value: Byte);
+  function getRotation: Integer;
+  var
+    func: Byte;
   begin
-    BDos(222, (pin shl 8) + value);
-  end; {of procedure digitalWrite}
+    func := 8;
+    getRotation := BDosHL(231, Addr(func)); { hostbdos }
+  end; {of function getRotation}
 
-  function analogRead(pin: Byte): Integer;
+  procedure setRotation(m: Byte);
+  var
+    func: array [0..1] of Byte;
   begin
-    analogRead := BDosHL(223, (pin shl 8));
-  end; {of function analogRead}
+    func[0] := 9;
+    func[1] := m;
+    BDos(231, Addr(func)); { hostbdos }
+  end; {of procedure setRotation}
 
-  procedure analogWrite(pin, value: Byte);
-  begin
-    BDos(224, (pin shl 8) + value);
-  end; {of procedure analogWrite}
-
-  function hostOS(pin, value: Byte): Integer;
-  begin
-    hostOS := BDosHL(225, (pin shl 8) + value);
-  end; {of function hostOS}
+  (*** Board BDOS ***)
 
   function getJoy2Key: Byte;
   var
@@ -146,19 +139,34 @@ const
     BDos(232, Addr(func[0]));
   end; {of procedure setTime}
 
-  function getRotation: Integer;
-  var
-    func: Byte;
-  begin
-    func := 8;
-    getRotation := BDosHL(231, Addr(func)); { hostbdos }
-  end; {of function getRotation}
+  (*** RunCPM BDOS ***)
 
-  procedure setRotation(m: Byte);
-  var
-    func: array [0..1] of Byte;
+  procedure pinMode(pin, mode: Byte);
   begin
-    func[0] := 9;
-    func[1] := m;
-    BDos(231, Addr(func)); { hostbdos }
-  end; {of procedure setRotation}
+    Bdos(220, (pin shl 8) + mode);
+  end; {of procedure pinMode}
+
+  function digitalRead(pin: Byte): Byte;
+  begin
+    digitalRead := BDos(221, (pin shl 8));
+  end; {of function digitalRead}
+
+  procedure digitalWrite(pin, value: Byte);
+  begin
+    BDos(222, (pin shl 8) + value);
+  end; {of procedure digitalWrite}
+
+  function analogRead(pin: Byte): Integer;
+  begin
+    analogRead := BDosHL(223, (pin shl 8));
+  end; {of function analogRead}
+
+  procedure analogWrite(pin, value: Byte);
+  begin
+    BDos(224, (pin shl 8) + value);
+  end; {of procedure analogWrite}
+
+  function hostOS: Integer;
+  begin
+    hostOS := BDosHL(250);
+  end; {of function hostOS}
