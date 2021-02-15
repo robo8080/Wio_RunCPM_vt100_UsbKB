@@ -13,7 +13,7 @@ SdFat SD;
 #define board_analog_io
 #define board_digital_io
 
-// ジョイスティック用
+// 繧ｸ繝ｧ繧､繧ｹ繝�繧｣繝�繧ｯ逕ｨ
 struct TJ2K {
   uint8_t BtnA : 1;   // 1
   uint8_t BtnB : 1;   // 2
