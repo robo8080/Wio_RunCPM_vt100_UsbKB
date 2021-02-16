@@ -12,4 +12,3 @@ begin
     Delay2(200);
   until KeyPressed;
 end.
-

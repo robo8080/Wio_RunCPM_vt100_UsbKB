@@ -10,7 +10,7 @@ begin
   GenerateChar('B', $00, $FC, $80, $80, $80, $80, $80, $80);
   GenerateChar('C', $00, $FC, $00, $1C, $1C, $1C, $1C, $1C);
   GenerateChar('D', $00, $E0, $70, $78, $78, $78, $78, $78);
-  GenerateChar('E', $7C, $7C, $7C, $60, $60, $64, $68, $68);  
+  GenerateChar('E', $7C, $7C, $7C, $60, $60, $64, $68, $68);
   GenerateChar('F', $80, $FC, $FC, $00, $00, $CC, $28, $08);
   GenerateChar('G', $00, $FC, $FC, $00, $00, $90, $58, $54);
   GenerateChar('H', $78, $F8, $F8, $18, $18, $58, $D8, $58);
