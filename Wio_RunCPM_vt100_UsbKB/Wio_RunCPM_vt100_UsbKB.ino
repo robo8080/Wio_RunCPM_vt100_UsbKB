@@ -69,8 +69,8 @@ static lgfx::Panel_ILI9341 panel;
 #define USE_EGR                   // EGR 拡張
 
 // キーボードタイプ
-//#define USE_USBKB                 // USB Keyboard を使う
-#define USE_CARDKB                // CardKB を使う
+#define USE_USBKB                 // USB Keyboard を使う
+//#define USE_CARDKB                // CardKB を使う
 
 // CrdKB I2C アドレス
 #define CARDKB_ADDR   0x5F
