@@ -69,14 +69,17 @@ static lgfx::Panel_ILI9341 panel;
 #define USE_EGR                   // EGR 拡張
 
 // キーボードタイプ
-//#define USE_USBKB                 // USB Keyboard を使う
-#define USE_CARDKB                // CardKB を使う
+#define USE_USBKB                 // USB Keyboard を使う
+//#define USE_CARDKB                // CardKB を使う
 
 // CrdKB I2C アドレス
 #define CARDKB_ADDR   0x5F
 
-// デバッグ出力
-//#define USE_DEBUGPRINT
+// デバッグ出力 (エスケープシーケンス)
+//#define USE_DEBUGESCSEQ           // 無効なエスケープシーケンスをデバッグ出力する
+
+// デバッグ出力 (パススルー)
+//#define USE_PASSTHROUGH           // 送られてきた生データをデバッグ出力する 
 
 //-----------------------------------------------------------------------
 
@@ -758,6 +761,11 @@ void clearParams(em m) {
 
 // 文字描画
 void printChar(char c) {
+
+#if defined USE_PASSTHROUGH
+  DebugSerial.print(c);
+#endif
+
   // [ESC] キー
   if (c == 0x1b) {
     escMode = em::ES;   // エスケープシーケンス開始
@@ -1242,6 +1250,7 @@ void printChar(char c) {
     // 置換 (SUB / ^Z): 画面消去
     if (c == 0x1a) {
       eraseInDisplay(2);
+      setCursorToHome();
       return;
     }
 
@@ -1347,14 +1356,14 @@ void restoreCursor() {
 
 // DECKPAM (Keypad Application Mode): アプリケーションキーパッドモードにセット
 void keypadApplicationMode() {
-#if defined USE_DEBUGPRINT
+#if defined USE_DEBUGESCSEQ
   DebugSerial.println(F("Unimplement: keypadApplicationMode"));
 #endif
 }
 
 // DECKPNM (Keypad Numeric Mode): 数値キーパッドモードにセット
 void keypadNumericMode() {
-#if defined USE_DEBUGPRINT
+#if defined USE_DEBUGESCSEQ
   DebugSerial.println(F("Unimplement: keypadNumericMode"));
 #endif
 }
@@ -1653,7 +1662,7 @@ void setMode(int16_t *vals, int16_t nVals) {
         adm3aMode(true);
         break;
       default:
-#if defined USE_DEBUGPRINT
+#if defined USE_DEBUGESCSEQ
         DebugSerial.print(F("Unimplement: setMode "));
         DebugSerial.println(String(vals[i], DEC));
 #endif
@@ -1683,7 +1692,7 @@ void decSetMode(int16_t *vals, int16_t nVals) {
         textCursorEnableMode(true);
         break;
       default:
-#if defined USE_DEBUGPRINT
+#if defined USE_DEBUGESCSEQ
         DebugSerial.print(F("Unimplement: decSetMode "));
         DebugSerial.println(String(vals[i], DEC));
 #endif
@@ -1709,7 +1718,7 @@ void resetMode(int16_t *vals, int16_t nVals) {
         adm3aMode(false);
         break;
       default:
-#if defined USE_DEBUGPRINT
+#if defined USE_DEBUGESCSEQ
         DebugSerial.print(F("Unimplement: resetMode "));
         DebugSerial.println(String(vals[i], DEC));
 #endif
@@ -1739,7 +1748,7 @@ void decResetMode(int16_t *vals, int16_t nVals) {
         textCursorEnableMode(false);
         break;
       default:
-#if defined USE_DEBUGPRINT
+#if defined USE_DEBUGESCSEQ
         DebugSerial.print(F("Unimplement: decResetMode "));
         DebugSerial.println(String(vals[i], DEC));
 #endif
@@ -1967,28 +1976,28 @@ void invokeConfidenceTests(uint8_t m) {
 
 // DECDHL (Double Height Line): カーソル行を倍高、倍幅、トップハーフへ変更
 void doubleHeightLine_TopHalf() {
-#if defined USE_DEBUGPRINT
+#if defined USE_DEBUGESCSEQ
   DebugSerial.println(F("Unimplement: doubleHeightLine_TopHalf"));
 #endif
 }
 
 // DECDHL (Double Height Line): カーソル行を倍高、倍幅、ボトムハーフへ変更
 void doubleHeightLine_BotomHalf() {
-#if defined USE_DEBUGPRINT
+#if defined USE_DEBUGESCSEQ
   DebugSerial.println(F("Unimplement: doubleHeightLine_BotomHalf"));
 #endif
 }
 
 // DECSWL (Single-width Line): カーソル行を単高、単幅へ変更
 void singleWidthLine() {
-#if defined USE_DEBUGPRINT
+#if defined USE_DEBUGESCSEQ
   DebugSerial.println(F("Unimplement: singleWidthLine"));
 #endif
 }
 
 // DECDWL (Double-Width Line): カーソル行を単高、倍幅へ変更
 void doubleWidthLine() {
-#if defined USE_DEBUGPRINT
+#if defined USE_DEBUGESCSEQ
   DebugSerial.println(F("Unimplement: doubleWidthLine"));
 #endif
 }
@@ -2008,7 +2017,7 @@ void screenAlignmentDisplay() {
 
 // G0 文字コードの設定
 void setG0charset(char c) {
-#if defined USE_DEBUGPRINT
+#if defined USE_DEBUGESCSEQ
   DebugSerial.println(F("Unimplement: setG0charset"));
 #endif
 }
@@ -2018,7 +2027,7 @@ void setG0charset(char c) {
 
 // G1 文字コードの設定
 void setG1charset(char c) {
-#if defined USE_DEBUGPRINT
+#if defined USE_DEBUGESCSEQ
   DebugSerial.println(F("Unimplement: setG1charset"));
 #endif
 }
@@ -2062,7 +2071,7 @@ void unknownSequence(em m, char c) {
       s = s + " %";
       break;
   }
-#if defined USE_DEBUGPRINT
+#if defined USE_DEBUGESCSEQ
   DebugSerial.print(F("Unknown: "));
   DebugSerial.print(s);
   DebugSerial.print(F(" "));
@@ -2220,7 +2229,7 @@ void setup() {
 
 #if !defined USE_CARDKB
   // キーボードの初期化
-#if defined USE_DEBUGPRINT
+#if defined USE_DEBUGESCSEQ
   if (usb.Init())
     DebugSerial.println(F("USB host did not start."));
 #endif
