@@ -69,8 +69,8 @@ static lgfx::Panel_ILI9341 panel;
 #define USE_EGR                   // EGR 拡張
 
 // キーボードタイプ
-#define USE_USBKB                 // USB Keyboard を使う
-//#define USE_CARDKB                // CardKB を使う
+//#define USE_USBKB                 // USB Keyboard を使う
+#define USE_CARDKB                // CardKB を使う
 
 // CrdKB I2C アドレス
 #define CARDKB_ADDR   0x5F
@@ -78,8 +78,8 @@ static lgfx::Panel_ILI9341 panel;
 // デバッグ出力 (エスケープシーケンス)
 //#define USE_DEBUGESCSEQ           // 無効なエスケープシーケンスをデバッグ出力する
 
-// デバッグ出力 (パススルー)
-//#define USE_PASSTHROUGH           // 送られてきた生データをデバッグ出力する 
+// デバッグ出力 (生データ)
+//#define USE_OUTPUTRAW             // 送られてきた生データをデバッグ出力する 
 
 //-----------------------------------------------------------------------
 
@@ -762,7 +762,7 @@ void clearParams(em m) {
 // 文字描画
 void printChar(char c) {
 
-#if defined USE_PASSTHROUGH
+#if defined USE_OUTPUTRAW
   DebugSerial.print(c);
 #endif
 
