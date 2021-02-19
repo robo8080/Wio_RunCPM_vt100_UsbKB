@@ -115,7 +115,7 @@ uint8_t toKana(const uint8_t ch) {
   if ((idx < 0) || ((rLen == 0) && (idx == 5))) {
     rBuf[rLen++] = c;
     if ((rLen == 2) && (rBuf[0] == rBuf[1])) {
-      pushKana(0xAF); // 同一子音の連続 (ッ)
+      pushKana(0xAF); // 子音の連続 (ッ)
       rBuf[--rLen] = 0x00;
     }
   } else {
