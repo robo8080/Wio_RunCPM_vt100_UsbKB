@@ -79,7 +79,7 @@ static lgfx::Panel_ILI9341 panel;
 //#define USE_DEBUGESCSEQ           // 無効なエスケープシーケンスをデバッグ出力する
 
 // デバッグ出力 (生データ)
-//#define USE_OUTPUTRAW             // 送られてきた生データをデバッグ出力する 
+//#define USE_OUTPUTRAW             // 送られてきた生データをデバッグ出力する
 
 //-----------------------------------------------------------------------
 
@@ -392,8 +392,6 @@ KeyboardController keyboard(usb);
 
 // マクロ
 #define swap(a, b) { uint16_t t = a; a = b; b = t; }
-#define LOBYTE(x) ((x) & 0xff)
-#define HIBYTE(x) (((x) >> 8) & 0xff)
 
 // -----------------------------------------------------------------------------
 
@@ -1222,91 +1220,107 @@ void printChar(char c) {
       clearParams(em::NONE);
       return;
     }
+  }
 
-    // バックスペース (BS / ^H): カーソルを一桁左へ移動
-    if (c == 0x08) {
-      cursorBackward(1);
-      return;
+  // 制御コード (1)
+  if (mode.Flgs.ADM3A) {
+    // ADM-3A
+    switch (c) {
+      case 0x08: // カーソルを一桁左へ移動 (BS / ^H)
+        cursorBackward(1);
+        return;
+      case 0x0A: // カーソルを一行下へ移動 (LF / ^J)
+        scroll();
+        return;
+      case 0x0B: // カーソルを一行上へ移動 (VT / ^K)
+        cursorUp(1);
+        return;
+      case 0x0C: // カーソルを一桁右へ移動 (FF / ^L)
+        cursorForward(1);
+        return;
+      case 0x1A: // 画面消去 (SUB / ^Z)
+        eraseInDisplay(2);
+        setCursorToHome();
+        return;
+      case 0x1E: // カーソルをホーム位置へ移動 (RS / ^^)
+        setCursorToHome();
+        return;
     }
-
-    // ラインフィード (LF / ^J): カーソルを一行下へ移動
-    if (c == 0x0a) {
-      scroll();
-      return;
-    }
-
-    // 垂直タブ (VT / ^K): カーソルを一行上へ移動
-    if (c == 0x0b) {
-      cursorUp(1);
-      return;
-    }
-
-    // フォームフィード (FF / ^L): カーソルを一桁右へ移動
-    if (c == 0x0c) {
-      cursorForward(1);
-      return;
-    }
-
-    // 置換 (SUB / ^Z): 画面消去
-    if (c == 0x1a) {
-      eraseInDisplay(2);
-      setCursorToHome();
-      return;
-    }
-
-    // レコード分離 (RS / ^^): カーソルをホーム位置へ移動
-    if (c == 0x1e) {
-      setCursorToHome();
-      return;
-    }
-
-    // 抹消 (DEL / ^?)
-    if (c == 0x7f) {
-      return;
-    }
-
   } else {
-    // バックスペース (BS)
-    if ((c == 0x08) || (c == 0x7f)) {
-      cursorBackward(1);
-      uint16_t idx = YP * SC_W + XP;
-      screen[idx] = 0;
-      attrib[idx] = 0;
-      colors[idx] = cColor.value;
-      sc_updateChar(XP, YP);
-      return;
-    }
-
-    // 改行 (LF / VT / FF)
-    if ((c == 0x0a) || (c == 0x0b) || (c == 0x0c)) {
-      scroll();
-      return;
+    // VT100
+    switch (c) {
+      case 0x08: // バックスペース (BS / ^H))
+        {
+          cursorBackward(1);
+          uint16_t idx = YP * SC_W + XP;
+          screen[idx] = 0;
+          attrib[idx] = 0;
+          colors[idx] = cColor.value;
+          sc_updateChar(XP, YP);
+        }
+        return;
+      case 0x0A: // 改行 (LF / ^J)
+      case 0x0B: // (VT / ^K)
+      case 0x0C: // (FF / ^L)
+        scroll();
+        return;
     }
   }
 
-  // ベル (BEL)
-  if (c == 0x07) {
-    playBeep(1, 12, 583);
-    return;
-  }
-
-  // タブ (TAB)
-  if (c == 0x09) {
-    int16_t idx = -1;
-    for (int16_t i = XP + 1; i < SC_W; i++) {
-      if (tabs[i]) {
-        idx = i;
-        break;
+  // 制御コード (2)
+  switch (c) {
+    case 0x00: // (NUL / ^@)
+    case 0x7F: // (DEL / ^?)
+      return;
+    case 0x05: // アンサーバック (ENQ / ^E)
+      printSpecialKey("RunCPM\r\n");
+      return;
+    case 0x07: // ベル (BEL / ^G)
+      playBeep(1, 12, 583);
+      return;
+    case 0x09: // タブ (TAB / ^I)
+      {
+        int16_t idx = -1;
+        for (int16_t i = XP + 1; i < SC_W; i++) {
+          if (tabs[i]) {
+            idx = i;
+            break;
+          }
+        }
+        XP = (idx == -1) ? MAX_SC_X : idx;
       }
-    }
-    XP = (idx == -1) ? MAX_SC_X : idx;
-    return;
-  }
-
-  // 復帰 (CR)
-  if (c == 0x0d) {
-    XP = 0;
-    return;
+      return;
+    case 0x0D: // 復帰 (CR  / ^M)
+      XP = 0;
+      return;
+    case 0x0E: // (SO  / ^N)
+      return;
+    case 0x0F: // (SI  / ^O)
+      return;
+    case 0x11: // (DC1 / ^Q)
+      return;
+    case 0x13: // (DC3 / ^S)
+      return;
+    case 0x18: // (CAN / ^X)
+    case 0x1A: // (SUB / ^Z)
+      return;
+    // Nothing's gonna happen.
+    case 0x01: // (SOH / ^A)
+    case 0x02: // (STX / ^B)
+    case 0x03: // (ETX / ^C)
+    case 0x04: // (EOT / ^D)
+    case 0x06: // (ACK / ^F)
+    case 0x10: // (DLE / ^P)
+    case 0x12: // (DC2 / ^R)
+    case 0x14: // (DC4 / ^T)
+    case 0x15: // (NAK / ^U)
+    case 0x16: // (SYN / ^V)
+    case 0x17: // (ETB / ^W)
+    case 0x1C: // (FS  / ^\)
+    case 0x1D: // (GS  / ^])
+    case 0x1E: // (RS  / ^^)
+    case 0x1F: // (US  / ^_)
+      return;
   }
 
   // 通常文字
@@ -2111,13 +2125,13 @@ void playBeep(const uint16_t Number, const uint8_t ToneNo, const uint16_t Durati
 // フォント書き換え
 void generateChar(int16_t *arr) {
   for (int i = 0; i < 8; i++)
-    fontTop[LOBYTE(arr[0]) * 8 + i] = LOBYTE(arr[i + 1]);
+    fontTop[lowByte(arr[0]) * 8 + i] = lowByte(arr[i + 1]);
 }
 
 // フォント復帰
 void restoreChar(int16_t *arr) {
   for (int i = 0; i < 8; i++)
-    fontTop[LOBYTE(arr[0]) * 8 + i] = ofontTop[LOBYTE(arr[0]) * 8 + i];
+    fontTop[lowByte(arr[0]) * 8 + i] = ofontTop[lowByte(arr[0]) * 8 + i];
 }
 
 // スクリーン情報の初期化
