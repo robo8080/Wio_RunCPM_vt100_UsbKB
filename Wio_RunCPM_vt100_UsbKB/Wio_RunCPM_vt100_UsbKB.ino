@@ -54,10 +54,10 @@ static lgfx::Panel_ILI9341 panel;
 //------Settings---------------------------------------------------------
 
 #if defined ESP32
-  #include "settings/M5Stack_FacesKB.h"
+#include "settings/M5Stack_FacesKB.h"
 //  #include "settings/M5Stack_CardKB.h"
 #else
-  #include "settings/WioTerminal_USBKB.h"
+#include "settings/WioTerminal_USBKB.h"
 //  #include "settings/WioTerminal_CardKB.h"
 #endif
 
@@ -354,12 +354,20 @@ union MODE_EX mode_ex = {defaultModeEx};
 
 // キー
 int key;
-PROGMEM const uint8 KEY_TBL[48] =  // キー変換テーブル
-{ 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x1e, 0x1c, 0x1f, 0x1b, 0x1d, 0x00,
-  0x00, 0x11, 0x17, 0x05, 0x12, 0x14, 0x19, 0x15, 0x09, 0x0f, 0x10, 0x00,
-  0x00, 0x00, 0x01, 0x13, 0x04, 0x06, 0x07, 0x08, 0x0a, 0x0b, 0x0c, 0x00,
-  0x00, 0x00, 0x1a, 0x18, 0x03, 0x16, 0x02, 0x0e, 0x0d, 0x00, 0x00, 0x00
+
+#if defined USE_FACES
+PROGMEM const uint8 KEY_TBL[48] =  // キー変換テーブル (faces)
+{ 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+  0x11, 0x17, 0x05, 0x12, 0x14, 0x19, 0x15, 0x09, 0x0f, 0x10, 0x01, 0x13, 0x04, 0x06, 0x07, 0x08, 
+  0x0a, 0x0b, 0x0c, 0x00, 0x1a, 0x18, 0x03, 0x16, 0x02, 0x0e, 0x0d, 0x00, 0x00, 0x00, 0x00, 0x20  
 };
+#else
+PROGMEM const uint8 KEY_TBL[48] =  // キー変換テーブル (CardKB)
+{ 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x1e, 0x1c, 0x1f, 0x1b, 0x1d, 0x00, 0x00, 0x11, 0x17, 0x05, 
+  0x12, 0x14, 0x19, 0x15, 0x09, 0x0f, 0x10, 0x00, 0x00, 0x00, 0x01, 0x13, 0x04, 0x06, 0x07, 0x08, 
+  0x0a, 0x0b, 0x0c, 0x00, 0x00, 0x00, 0x1a, 0x18, 0x03, 0x16, 0x02, 0x0e, 0x0d, 0x00, 0x00, 0x00
+};
+#endif
 
 // 前回位置情報
 int16_t p_XP = 0;
@@ -434,10 +442,10 @@ static inline uint16_t RGB565dark(uint16_t col) {
 // システムリセット (CP/M のコールドブート)
 void resetSystem() {
 #if defined ESP32
-  ESP.restart();  
-#else  
+  ESP.restart();
+#else
   NVIC_SystemReset();
-#endif 
+#endif
 }
 
 #if !defined USE_I2CKB
@@ -476,6 +484,71 @@ void printKey() {
   } else {
     needCursorUpdate = true;
 #if defined USE_I2CKB
+
+#if defined USE_FACES
+    /* Faces */
+    switch (c) {
+      case 0xB0:          // Alt-Space
+        isConvert = (mask8bit & 0x80) ? !isConvert : false;
+        rLen = 0;
+        needCursorUpdate = false;
+        break;
+      case 0xaf:          // alt-0
+      case 0xff:          // sym-$
+        c = 0x1b;
+        xQueueSend(xQueue, &c, 0);
+        break;
+      case 0xB4:          // Fn-G
+        printSpecialKey(BTN_CMD[BT_A]);
+        break;
+      case 0xB5:          // FN-H
+        printSpecialKey(BTN_CMD[BT_B]);
+        break;
+      case 0xB6:          // Fn-J
+        printSpecialKey(BTN_CMD[BT_C]);
+        break;
+      case 0xB8:          // Fn-L (INS)
+        printSpecialKey(KEY_CMD[KY_INS]);
+        break;
+      case 0xba:          // Fn-Z (Tab)
+        c = 0x09;
+        xQueueSend(xQueue, &c, 0);
+        break;
+      case 0xbf:          // Fn-N (Left)
+        printSpecialKey(SW_CMD[SW_LEFT]);
+        break;
+      case 0xb7:          // Fn-K (Up)
+        printSpecialKey(SW_CMD[SW_UP]);
+        break;
+      case 0xc0:          // Fn-M (Down)
+        printSpecialKey(SW_CMD[SW_DOWN]);
+        break;
+      case 0xc1:          // Fn-$ (Right)
+        printSpecialKey(SW_CMD[SW_RIGHT]);
+        break;
+      case 0xbb:          // Fn-X (Home)
+        printSpecialKey(KEY_CMD[KY_HOME]);
+        break;
+      case 0xbd:          // Fn-V (Page Up)
+        printSpecialKey(KEY_CMD[KY_PGUP]);
+        break;
+      case 0xbe:          // Fn-B (Page Down)
+        printSpecialKey(KEY_CMD[KY_PGDOWN]);
+        break;
+      case 0xbc:          // Fn-C (End)
+        printSpecialKey(KEY_CMD[KY_END]);
+        break;
+      case 0x90 ... 0x99: // Fn-Q..P
+      case 0x9a ... 0xa2: // Fn-A..L
+      case 0xa5 ... 0xab: // Fn-Z..M
+        c = KEY_TBL[c - 0x80];
+        xQueueSend(xQueue, &c, 0);
+        break;
+      default:
+        needCursorUpdate = false;
+    }
+#else
+    /* CardKB */
     switch (c) {
       case 0x80:          // Fn-Esc
         isConvert = (mask8bit & 0x80) ? !isConvert : false;
@@ -533,6 +606,7 @@ void printKey() {
       default:
         needCursorUpdate = false;
     }
+#endif
 #else
     switch (key) {
       case 0x29:          // Alt-Esc
@@ -2138,7 +2212,7 @@ void playBeep(const uint16_t Number, const uint8_t ToneNo, const uint16_t Durati
     if (i < (Number - 1)) delay(300);
   }
   delay(20);
-#endif  
+#endif
 }
 
 // フォント書き換え
@@ -2164,7 +2238,7 @@ void initScreen(uint8_t r) {
 #else
   TC.stopTimer();
 #endif
-  
+
   lcd.setRotation(r2);
 
   if (!mode_ex.Flgs.Cols132) {
@@ -2213,7 +2287,7 @@ void initScreen(uint8_t r) {
   TC.attach(TIMER_PERIOD, handle_timer); // 200ms
 #else
   TC.restartTimer(TIMER_PERIOD);
-#endif  
+#endif
 }
 
 // スクリーン情報の初期化
@@ -2237,7 +2311,7 @@ void setup() {
     lgfx::i2c::writeRegister8(I2C_NUM_1, 0x34, 0x91, 0xF0, 0x0F);
     lgfx::i2c::writeRegister8(I2C_NUM_1, 0x34, 0x90, 0x02, 0xF8);
     lgfx::i2c::writeRegister8(I2C_NUM_1, 0x34, 0x12, 0x40, 0xFF);
-    Wire.begin(32,33);
+    Wire.begin(32, 33);
   } else {
     Wire.begin();
   }
@@ -2263,21 +2337,21 @@ void setup() {
 
   // LCD の初期化
   lcd.init();
-  lcd.setBrightness(255);  
+  lcd.setBrightness(255);
 #if defined ESP32
   dacWrite(25, 0); // Speaker OFF(M5Stack Faces装着時のノイズ対策)
 #else
   lcd.startWrite();
-#endif  
+#endif
   lcd.setColorDepth(16);
   initScreenEx(ROTATION_ANGLE);
 
   // RTC の初期化
 #if defined USE_RTC
 #if defined ESP32
-#else  
+#else
   rtc.begin();
-#endif  
+#endif
 #endif
 
   // スイッチの初期化
@@ -2412,9 +2486,9 @@ void loop2() {
   // RTC
 #if defined USE_RTC
 #if defined ESP32
-#else  
+#else
   now = rtc.now();
-#endif  
+#endif
 #endif
 
 #if defined USE_I2CKB
