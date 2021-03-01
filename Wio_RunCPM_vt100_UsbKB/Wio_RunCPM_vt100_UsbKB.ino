@@ -1,38 +1,50 @@
-/************************************************************/
-/*                                                          */
-/*        RunCPM + VT100 Emulator for Wio Termainal         */
-/*                                                          */
-/*   Wio_RunCPM_vt100_UsbKB                                 */
-/*     https://github.com/robo8080/Wio_RunCPM_vt100_UsbKB   */
-/*   Wio_RunCPM_vt100_CardKB                                */
-/*     https://github.com/robo8080/Wio_RunCPM_vt100_CardKB  */
-/*                                                          */
-/*   RunCPM - Z80 CP/M 2.2 emulator                         */
-/*     https://github.com/MockbaTheBorg/RunCPM              */
-/*   VT100 Terminal Emulator for Wio Terminal               */
-/*     https://github.com/ht-deko/vt100_wt                  */
-/*                                                          */
-/************************************************************/
+/****************************************************************/
+/*                                                              */
+/*     RunCPM + VT100 Emulator for Wio Termainal / M5Stack      */
+/*                                                              */
+/*   Wio_RunCPM_vt100_UsbKB                                     */
+/*     https://github.com/robo8080/Wio_RunCPM_vt100_UsbKB       */
+/*   Wio_RunCPM_vt100_CardKB                                    */
+/*     https://github.com/robo8080/Wio_RunCPM_vt100_CardKB      */
+/*   M5Stack_RunCPM_vt100_CardKB                                */
+/*     https://github.com/robo8080/M5Stack_RunCPM_vt100_CardKB  */
+/*                                                              */
+/*   RunCPM - Z80 CP/M 2.2 emulator                             */
+/*     https://github.com/MockbaTheBorg/RunCPM                  */
+/*   VT100 Terminal Emulator for Wio Terminal                   */
+/*     https://github.com/ht-deko/vt100_wt                      */
+/*                                                              */
+/****************************************************************/
 
 #include <Arduino.h>
 #include <SPI.h>
 
 //------VT100_WT---------------------------------------------------------
 
+#if defined ESP32
+#include <driver/dac.h>
+#else
 #include <Seeed_Arduino_FreeRTOS.h>
 // https://github.com/Seeed-Studio/Seeed_Arduino_FreeRTOS
-#include <LovyanGFX.hpp>
-// https://github.com/lovyan03/LovyanGFX
 #include <SAMD51_InterruptTimer.h>
 // https://github.com/Dennis-van-Gils/SAMD51_InterruptTimer
+#endif
+
+#include <LovyanGFX.hpp>
+// https://github.com/lovyan03/LovyanGFX
 
 //------RunCPM-----------------------------------------------------------
 
-#include <SdFat.h>
-// https://github.com/greiman/SdFat
+#if defined ESP32
+#include <Ticker.h>
+#else
 #include "RTC_SAMD51.h"
 // https://github.com/Seeed-Studio/Seeed_Arduino_RTC
-#include "DateTime.h"
+#endif
+
+#include <DateTime.h>
+#include <SdFat.h>
+// https://github.com/greiman/SdFat
 
 //------LovyanGFX--------------------------------------------------------
 
@@ -41,45 +53,13 @@ static lgfx::Panel_ILI9341 panel;
 
 //------Settings---------------------------------------------------------
 
-// フォント: 53 Columns (font: 6x8) or 40 Columns (font: 8x8)
-#include "fonts/font6x8sc1602b.h"             // 6x8 ドットフォント (SUNLIKE SC1602B 風)
-//#include "fonts/font8x8misaki_2nd.h"          // 8x8 ドットフォント (美咲ゴシック 2nd)
-// 横画面時: (53 or 40 - NORM_MARGINH_X) x (40 - NORM_MARGINH_Y)
-#define NORM_MARGINH_X  1         // マージン文字数 (横)
-#define NORM_MARGINH_Y  1         // マージン文字数 (縦)
-// 縦画面時: (40 or 30 - NORM_MARGINV_X) x (40 - NORM_MARGINV_Y)
-#define NORM_MARGINV_X  1         // マージン文字数 (横)
-#define NORM_MARGINV_Y  1         // マージン文字数 (縦)
-
-// フォント: 80 Columns (font: 4x8)
-#include "fonts/font4x8yk.h"                    // 4x8 ドットフォント (@ykumano)
-// 横画面時: (80 - WIDE_MARGINH_X) x (40 - WIDE_MARGINH_Y)
-#define WIDE_MARGINH_X  0         // マージン文字数 (横)
-#define WIDE_MARGINH_Y  1         // マージン文字数 (縦)
-// 縦画面時: (60 - WIDE_MARGINV_X) x (40 - WIDE_MARGINV_Y)
-#define WIDE_MARGINV_X  1         // マージン文字数 (横)
-#define WIDE_MARGINV_Y  1         // マージン文字数 (縦)
-
-// 色
-#define FORE_COLOR    clWhite     // 初期前景色
-#define BACK_COLOR    clBlue      // 初期背景色
-#define CURSOR_COLOR  clWhite     // カーソル色
-
-// エスケープシーケンス
-#define USE_EGR                   // EGR 拡張
-
-// キーボードタイプ
-#define USE_USBKB                 // USB Keyboard を使う
-//#define USE_CARDKB                // CardKB を使う
-
-// CrdKB I2C アドレス
-#define CARDKB_ADDR   0x5F
-
-// デバッグ出力 (エスケープシーケンス)
-//#define USE_DEBUGESCSEQ           // 無効なエスケープシーケンスをデバッグ出力する
-
-// デバッグ出力 (生データ)
-//#define USE_OUTPUTRAW             // 送られてきた生データをデバッグ出力する
+#if defined ESP32
+  #include "settings/M5Stack_FacesKB.h"
+//  #include "settings/M5Stack_CardKB.h"
+#else
+  #include "settings/WioTerminal_USBKB.h"
+//  #include "settings/WioTerminal_CardKB.h"
+#endif
 
 //-----------------------------------------------------------------------
 
@@ -103,18 +83,79 @@ uint16_t MARGIN_LEFT;         // 左マージン (px)
 uint16_t MARGIN_TOP;          // 上マージン (px)
 uint16_t ROTATION_ANGLE = 0;  // 画面回転 (0..3)
 
+// キーボード
+#if defined USE_USBKB
+#undef USE_I2CKB
+#endif
+
+#if !defined ESP32
+#undef USE_FACES
+#endif
+
+#if defined USE_I2CKB
+#if defined USE_FACES
+#define I2C_KB_ADDR   0x08
+#define KBD_TYPE  "Faces"
+#else
+#define I2C_KB_ADDR   0x5F
+#define KBD_TYPE  "CardKB"
+#endif
+#include <Wire.h>
+#else
+#define KBD_TYPE  "USB KB"
+#include <KeyboardController.h>
+#endif
+
+// ヘッダファイル
+#include "globals.h"
+
+// Delays for LED blinking
+#define sDELAY 50
+#define DELAY 100
+
+// PUN: device configuration
+#if defined USE_PUN
+File pun_dev;
+int pun_open = FALSE;
+#endif
+
+// LST: device configuration
+#if defined USE_LST
+File lst_dev;
+int lst_open = FALSE;
+#endif
+
+// 前方宣言
+void resetSystem();
+
+// Board definitions go into the "hardware" folder, if you use a board different than the
+// Arduino DUE, choose/change a file from there and replace arduino/due.h here
+#if defined ESP32
+#include "hardware/esp32/m5stack.h"
+#else
+#include "hardware/arduino/wioterm.h"
+#define
+#endif
+
 // コマンドの長さ
 PROGMEM const int CMD_LEN = 5;
+
 // スイッチ情報
-PROGMEM const int SW_PORT[5] = {WIO_5S_UP, WIO_5S_LEFT, WIO_5S_RIGHT, WIO_5S_DOWN, WIO_5S_PRESS};
+#if defined HW_5S
+PROGMEM const int SW_PORT[5] = {HW_5S_UP, HW_5S_LEFT, HW_5S_RIGHT, HW_5S_DOWN, HW_5S_PRESS};
 bool prev_sw[5] = {false, false, false, false, false};
-enum WIO_SW {SW_UP, SW_LEFT, SW_RIGHT, SW_DOWN, SW_PRESS};
+#endif
+enum HW_SW {SW_UP, SW_LEFT, SW_RIGHT, SW_DOWN, SW_PRESS};
 PROGMEM const char SW_CMD[5][CMD_LEN] = {"\eOA", "\eOD", "\eOC", "\eOB", "\r"};
+
 // ボタン情報
-PROGMEM const int BTN_PORT[3] = {WIO_KEY_A, WIO_KEY_B, WIO_KEY_C};
+#if defined HW_KEY
+PROGMEM const int BTN_PORT[3] = {HW_KEY_A, HW_KEY_B, HW_KEY_C};
 bool prev_btn[3] = {false, false, false};
-enum WIO_BTN {BT_A, BT_B, BT_C};
+#endif
+enum HW_BTN {BT_A, BT_B, BT_C};
 PROGMEM const char BTN_CMD[3][CMD_LEN] = {"\eOT", "\eOS", "\eOR"};
+
 // 特殊キー情報
 enum SP_KEY {KY_HOME, KY_INS, KY_DEL, KY_END, KY_PGUP, KY_PGDOWN};
 PROGMEM const char KEY_CMD[7][CMD_LEN] = {"\eO1", "\eO2", "\x7F", "\eO4", "\eO5", "\eO6"};
@@ -149,45 +190,6 @@ PROGMEM const int ROT_TBL[4][4] = {{0, 1, 2, 3}, {1, 3, 0, 2}, {3, 2, 1, 0}, {2,
   +-------------+--------------+-----------+
 *********************************************/
 
-// キーボード
-#if defined USE_USBKB
-#undef USE_CARDKB
-#endif
-
-#if defined USE_CARDKB
-#define KBD_TYPE  "CardKB"
-#include <Wire.h>
-#else
-#define KBD_TYPE  "USB KB"
-#include <KeyboardController.h>
-#endif
-
-// ヘッダファイル
-#include "globals.h"
-
-// Delays for LED blinking
-#define sDELAY 50
-#define DELAY 100
-
-// PUN: device configuration
-#if defined USE_PUN
-File pun_dev;
-int pun_open = FALSE;
-#endif
-
-// LST: device configuration
-#if defined USE_LST
-File lst_dev;
-int lst_open = FALSE;
-#endif
-
-// 前方宣言
-void resetSystem();
-
-// Board definitions go into the "hardware" folder, if you use a board different than the
-// Arduino DUE, choose/change a file from there and replace arduino/due.h here
-#include "hardware/arduino/wioterm.h"
-
 #include "host.h"
 #include "abstraction_arduino.h"
 #include "ram.h"
@@ -201,7 +203,7 @@ void resetSystem();
 #include "romanconv.h"
 
 // デバッグシリアル
-#if defined USE_CARDKB
+#if defined USE_I2CKB
 #define DebugSerial Serial
 #else
 #define DebugSerial Serial1
@@ -218,7 +220,7 @@ void resetSystem();
 */
 
 // スピーカー制御用ピン
-#define SPK_PIN       WIO_BUZZER  // Wio Terminal
+#define SPK_PIN       HW_BUZZER
 
 // キュー
 #define QUEUE_LENGTH 100
@@ -382,12 +384,23 @@ int16_t vals[10] = {};
 // カーソル描画用
 bool needCursorUpdate = false;
 bool hideCursor = false;
+
+#if defined ESP32
+PROGMEM const float TIMER_PERIOD = 0.2;            // 200ms
+#else
 PROGMEM const unsigned long TIMER_PERIOD = 200000; // 200ms
+#endif
+
 
 // キーボード制御用
-#if !defined USE_CARDKB
+#if !defined USE_I2CKB
 USBHost usb;
 KeyboardController keyboard(usb);
+#endif
+
+// カーソル用タイマー
+#if defined ESP32
+Ticker TC;
 #endif
 
 // マクロ
@@ -420,10 +433,14 @@ static inline uint16_t RGB565dark(uint16_t col) {
 
 // システムリセット (CP/M のコールドブート)
 void resetSystem() {
+#if defined ESP32
+  ESP.restart();  
+#else  
   NVIC_SystemReset();
+#endif 
 }
 
-#if !defined USE_CARDKB
+#if !defined USE_I2CKB
 // イベント: キーを押した
 void keyPressed() {
   //printKey();
@@ -439,8 +456,8 @@ void keyReleased() {
 void printKey() {
 
   char c = 0;
-#if defined USE_CARDKB
-  if (Wire.requestFrom(CARDKB_ADDR, 1))
+#if defined USE_I2CKB
+  if (Wire.requestFrom(I2C_KB_ADDR, 1))
     c = Wire.read();
   needCursorUpdate = (c > 0x00) && (c < 0x80);
 #else
@@ -458,7 +475,7 @@ void printKey() {
     xQueueSend(xQueue, &c, 0);
   } else {
     needCursorUpdate = true;
-#if defined USE_CARDKB
+#if defined USE_I2CKB
     switch (c) {
       case 0x80:          // Fn-Esc
         isConvert = (mask8bit & 0x80) ? !isConvert : false;
@@ -525,13 +542,13 @@ void printKey() {
         }
         needCursorUpdate = false;
         break;
-      case 60: // F3 (Wio Button #3)
+      case 60: // F3 (Button #3)
         printSpecialKey(BTN_CMD[BT_C]);
         break;
-      case 61: // F4 (Wio Button #2)
+      case 61: // F4 (Button #2)
         printSpecialKey(BTN_CMD[BT_B]);
         break;
-      case 62: // F5 (Wio Button #1)
+      case 62: // F5 (Button #1)
         printSpecialKey(BTN_CMD[BT_A]);
         break;
       case 73: // Insert
@@ -552,16 +569,16 @@ void printKey() {
       case 78: // Page Down
         printSpecialKey(KEY_CMD[KY_PGDOWN]);
         break;
-      case 79: // RIGHT (Wio Switch #3)
+      case 79: // RIGHT (Switch #3)
         printSpecialKey(SW_CMD[SW_RIGHT]);
         break;
-      case 80: // LEFT (Wio Switch #4)
+      case 80: // LEFT (Switch #4)
         printSpecialKey(SW_CMD[SW_LEFT]);
         break;
-      case 81: // DOWN (Wio Switch #2)
+      case 81: // DOWN (Switch #2)
         printSpecialKey(SW_CMD[SW_DOWN]);
         break;
-      case 82: // UP (Wio Switch #1)
+      case 82: // UP (Switch #1)
         printSpecialKey(SW_CMD[SW_UP]);
         break;
       default:
@@ -2111,6 +2128,7 @@ void playTone(int Pin, int Tone, int Duration) {
 
 // Play Beep
 void playBeep(const uint16_t Number, const uint8_t ToneNo, const uint16_t Duration) {
+#if defined HW_BUZZER
   double freq = ((ToneNo == 12) && (Duration == 583)) ? 4000 : 256000.0 / (90 + 4 * ToneNo);
   if (freq <  230.6) freq =  230.6;
   if (freq > 2844.4) freq = 2844.4;
@@ -2120,6 +2138,7 @@ void playBeep(const uint16_t Number, const uint8_t ToneNo, const uint16_t Durati
     if (i < (Number - 1)) delay(300);
   }
   delay(20);
+#endif  
 }
 
 // フォント書き換え
@@ -2140,7 +2159,12 @@ void initScreen(uint8_t r) {
   uint8_t r2 = (r + 5) % 4;
   // r2: 0=270°, 1=0°, 2=90°, 3=180°
 
+#if defined ESP32
+  TC.detach();
+#else
   TC.stopTimer();
+#endif
+  
   lcd.setRotation(r2);
 
   if (!mode_ex.Flgs.Cols132) {
@@ -2185,7 +2209,11 @@ void initScreen(uint8_t r) {
   MARGIN_TOP  = (RSP_H - SP_H) / 2;     // 上マージン
   M_BOTTOM = MAX_SC_Y;
 
+#if defined ESP32
+  TC.attach(TIMER_PERIOD, handle_timer); // 200ms
+#else
   TC.restartTimer(TIMER_PERIOD);
+#endif  
 }
 
 // スクリーン情報の初期化
@@ -2197,10 +2225,25 @@ void initScreenEx(uint8_t r) {
 
 // セットアップ
 void setup() {
+#if defined LED
   pinMode(LED, OUTPUT);
   digitalWrite(LED, LOW);
-#if defined USE_CARDKB
+#endif
+
+#if defined USE_I2CKB
+#if defined ESP32
+  if (lcd.getBoard() == lgfx::board_t::board_M5StackCore2)
+  { // M5StackCore2の外部ポートを有効にする (AXP192に対して外部ポートの5V出力を指示)
+    lgfx::i2c::writeRegister8(I2C_NUM_1, 0x34, 0x91, 0xF0, 0x0F);
+    lgfx::i2c::writeRegister8(I2C_NUM_1, 0x34, 0x90, 0x02, 0xF8);
+    lgfx::i2c::writeRegister8(I2C_NUM_1, 0x34, 0x12, 0x40, 0xFF);
+    Wire.begin(32,33);
+  } else {
+    Wire.begin();
+  }
+#else
   Wire.begin();    // Define(SDA, SCL)
+#endif
 #endif
   DebugSerial.begin(SERIALSPD);
   delay(500);
@@ -2220,28 +2263,41 @@ void setup() {
 
   // LCD の初期化
   lcd.init();
+  lcd.setBrightness(255);  
+#if defined ESP32
+  dacWrite(25, 0); // Speaker OFF(M5Stack Faces装着時のノイズ対策)
+#else
   lcd.startWrite();
+#endif  
   lcd.setColorDepth(16);
   initScreenEx(ROTATION_ANGLE);
 
   // RTC の初期化
+#if defined USE_RTC
+#if defined ESP32
+#else  
   rtc.begin();
+#endif  
+#endif
 
   // スイッチの初期化
+#if defined HW_5S
   for (int i = 0; i < 5; i++)
     pinMode(SW_PORT[i], INPUT_PULLUP);
+#endif
 
   // ボタンの初期化
+#if defined HW_KEY
   for (int i = 0; i < 3; i++)
     pinMode(BTN_PORT[i], INPUT_PULLUP);
-
-  // カーソル用タイマーの設定
-  TC.startTimer(TIMER_PERIOD, handle_timer);
+#endif
 
   // ブザーの初期化
+#if defined HW_BUZZER
   pinMode(SPK_PIN, OUTPUT);
+#endif
 
-#if !defined USE_CARDKB
+#if !defined USE_I2CKB
   // キーボードの初期化
 #if defined USE_DEBUGESCSEQ
   if (usb.Init())
@@ -2250,6 +2306,13 @@ void setup() {
   delay(20);
   digitalWrite(PIN_USB_HOST_ENABLE, LOW);
   digitalWrite(OUTPUT_CTR_5V, HIGH);
+#endif
+
+  // カーソル用タイマーの設定
+#if defined ESP32
+  TC.attach(TIMER_PERIOD, handle_timer); // 200ms
+#else
+  TC.startTimer(TIMER_PERIOD, handle_timer);
 #endif
 
 #if defined DEBUGLOG
@@ -2332,6 +2395,7 @@ void setup() {
 
 // ループ
 void loop() {
+#if defined LED
   digitalWrite(LED, HIGH ^ LEDinv);
   delay(DELAY);
   digitalWrite(LED, LOW ^ LEDinv);
@@ -2340,14 +2404,20 @@ void loop() {
   delay(DELAY);
   digitalWrite(LED, LOW ^ LEDinv);
   delay(DELAY * 4);
+#endif
 }
 
 // ループ
 void loop2() {
   // RTC
+#if defined USE_RTC
+#if defined ESP32
+#else  
   now = rtc.now();
+#endif  
+#endif
 
-#if defined USE_CARDKB
+#if defined USE_I2CKB
   printKey();
 #else
   // USB
@@ -2355,6 +2425,7 @@ void loop2() {
 #endif
 
   // スイッチ
+#if defined HW_5S
   for (int i = 0; i < 5; i++) {
     if (!(j2k.value & (1 << (i + 3)))) continue;
     if (digitalRead(SW_PORT[i]) == LOW) {
@@ -2367,8 +2438,10 @@ void loop2() {
       prev_sw[i] = false;
     }
   }
+#endif
 
   // ボタン
+#if defined HW_KEY
   for (int i = 0; i < 3; i++) {
     if (!(j2k.value & (1 << i))) continue;
     if (digitalRead(BTN_PORT[i]) == LOW) {
@@ -2381,6 +2454,7 @@ void loop2() {
       prev_btn[i] = false;
     }
   }
+#endif
 
   // カーソル表示処理
   if (canShowCursor || needCursorUpdate) {

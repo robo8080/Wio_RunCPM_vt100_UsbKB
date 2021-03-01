@@ -13,6 +13,20 @@ SdFat SD;
 #define board_analog_io
 #define board_digital_io
 
+#define HW_KEY
+#define HW_KEY_A WIO_KEY_A
+#define HW_KEY_B WIO_KEY_B
+#define HW_KEY_C WIO_KEY_C
+
+#define HW_5S
+#define HW_5S_UP    WIO_5S_UP
+#define HW_5S_LEFT  WIO_5S_LEFT
+#define HW_5S_RIGHT WIO_5S_RIGHT
+#define HW_5S_DOWN  WIO_5S_DOWN
+#define HW_5S_PRESS WIO_5S_PRESS
+
+#define HW_BUZZER   WIO_BUZZER  
+
 // ジョイスティック用
 struct TJ2K {
   uint8_t BtnA : 1;   // 1
