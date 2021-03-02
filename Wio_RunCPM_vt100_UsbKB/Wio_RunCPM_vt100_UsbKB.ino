@@ -134,7 +134,6 @@ void resetSystem();
 #include "hardware/esp32/m5stack.h"
 #else
 #include "hardware/arduino/wioterm.h"
-#define
 #endif
 
 // コマンドの長さ
