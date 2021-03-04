@@ -27,6 +27,8 @@ SdFat SD;
 
 #define HW_BUZZER   WIO_BUZZER  
 
+#define USE_RTC
+
 // ジョイスティック用
 struct TJ2K {
   uint8_t BtnA : 1;   // 1

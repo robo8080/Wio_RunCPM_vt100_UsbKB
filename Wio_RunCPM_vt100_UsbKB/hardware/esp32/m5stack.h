@@ -21,6 +21,10 @@ SdFat SD;
 #define HW_KEY_B M5_KEY_B
 #define HW_KEY_C M5_KEY_C
 
+//#define HW_BUZZER 25
+
+//#define USE_RTC
+
 // ジョイスティック用
 struct TJ2K {
   uint8_t BtnA : 1;   // 1
@@ -41,6 +45,7 @@ union J2K {
 PROGMEM const uint8_t defaultj2k = 0b11111111;
 
 QueueHandle_t xQueue;
+RTC_DS3231 rtc;
 DateTime now;
 union J2K j2k = {defaultj2k};
 
@@ -91,7 +96,7 @@ uint16 esp32bdos(uint16 dmaaddr) {
                            now.hour(), now.minute(), now.second());
             break;
         }
-//        rtc.adjust(now);
+        rtc.adjust(now);
       }
       return(HL);
       break;
@@ -123,7 +128,7 @@ uint16 esp32bdos(uint16 dmaaddr) {
                            HIGH_REGISTER(v), LOW_REGISTER(v), now.second());
             break;
         }
-//      rtc.adjust(now);
+        rtc.adjust(now);
       }
       return(HL);
       break;
