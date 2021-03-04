@@ -25,7 +25,7 @@ SdFat SD;
 
 //#define USE_RTC
 
-// ジョイスティック用
+// 繧ｸ繝ｧ繧､繧ｹ繝�繧｣繝�繧ｯ逕ｨ
 struct TJ2K {
   uint8_t BtnA : 1;   // 1
   uint8_t BtnB : 1;   // 2
@@ -45,7 +45,10 @@ union J2K {
 PROGMEM const uint8_t defaultj2k = 0b11111111;
 
 QueueHandle_t xQueue;
-RTC_DS3231 rtc;
+//RTC_DS3231 rtc;
+//RTC_DS1307 rtc;
+//RTC_PCF8523 rtc;
+RTC_PCF8563 rtc;
 DateTime now;
 union J2K j2k = {defaultj2k};
 
