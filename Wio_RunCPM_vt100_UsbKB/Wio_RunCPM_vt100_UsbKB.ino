@@ -58,7 +58,7 @@ static lgfx::Panel_ILI9341 panel;
 #include "settings/M5Stack_FacesKB.h"
 //#include "settings/M5Stack_CardKB.h"
 #else
-//#include "settings/WioTerminal_USBKB.h"
+#include "settings/WioTerminal_USBKB.h"
 #include "settings/WioTerminal_CardKB.h"
 #endif
 
