@@ -59,7 +59,7 @@ static lgfx::Panel_ILI9341 panel;
 //#include "settings/M5Stack_CardKB.h"
 #else
 #include "settings/WioTerminal_USBKB.h"
-#include "settings/WioTerminal_CardKB.h"
+//#include "settings/WioTerminal_CardKB.h"
 #endif
 
 //-----------------------------------------------------------------------
@@ -359,7 +359,7 @@ int key;
 PROGMEM const uint8 KEY_TBL[48] =  // キー変換テーブル (faces)
 { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
   0x11, 0x17, 0x05, 0x12, 0x14, 0x19, 0x15, 0x09, 0x0f, 0x10, 0x01, 0x13, 0x04, 0x06, 0x07, 0x08,
-  0x0a, 0x0b, 0x0c, 0x00, 0x1a, 0x18, 0x03, 0x16, 0x02, 0x0e, 0x0d, 0x00, 0x00, 0x00, 0x00, 0x20
+  0x0a, 0x0b, 0x0c, 0x00, 0x00, 0x1a, 0x18, 0x03, 0x16, 0x02, 0x0e, 0x0d, 0x00, 0x00, 0x00, 0x00
 };
 #else
 PROGMEM const uint8 KEY_TBL[48] =  // キー変換テーブル (CardKB)
@@ -404,9 +404,6 @@ PROGMEM const unsigned long TIMER_PERIOD = 200000; // 200ms
 #if !defined USE_I2CKB
 USBHost usb;
 KeyboardController keyboard(usb);
-#endif
-#if defined USE_FACES
-char prevKey = '\0';
 #endif
 
 // カーソル用タイマー
@@ -466,15 +463,25 @@ void keyReleased() {
 // キー押下処理
 void printKey() {
 
-  char c = 0;
+  char c = 0x00;
 #if defined USE_I2CKB
   if (Wire.requestFrom(I2C_KB_ADDR, 1))
     c = Wire.read();
-  needCursorUpdate = (c > 0x00) && (c < 0x80);
+
 #if defined USE_FACES
-  if ((prevKey == 0x0D) && (c == 0x0A)) // Faces Keyboard は Enter で CRLF を返す
-    needCursorUpdate = false;
+  // Faces Keyboard は Enter で CRLF を返す
+  if (c == 0x0d) {
+    do {
+      c = 0x00;
+      if (Wire.requestFrom(I2C_KB_ADDR, 1)) {
+        c = Wire.read();
+      }
+    } while (c == 0x00);
+    if (c == 0x0a)
+      c = 0x0d;
+  }
 #endif
+  needCursorUpdate = (c > 0x00) && (c < 0x80);
 #else
   c = keyboard.getKey();
   int key = keyboard.getOemKey();
@@ -544,17 +551,15 @@ void printKey() {
       case 0xbc:          // Fn-C (End)
         printSpecialKey(KEY_CMD[KY_END]);
         break;
-      case 0x90 ... 0x99: // Fn-Q..P
-      case 0x9a ... 0xa2: // Fn-A..L
-      case 0xa5 ... 0xab: // Fn-Z..M
+      case 0x90 ... 0x99: // alt-Q..P
+      case 0x9a ... 0xa2: // alt-A..L
+      case 0xa5 ... 0xab: // alt-Z..M
         c = KEY_TBL[c - 0x80];
         xQueueSend(xQueue, &c, 0);
         break;
       default:
         needCursorUpdate = false;
     }
-  prevKey = c;
-
 #else
     /* CardKB */
     switch (c) {
@@ -2428,6 +2433,7 @@ void setup() {
 #if defined board_esp32
   _puts("Initializing SPI.\r\n");
   SPI.begin(SPIINIT);
+  delay(100);
 #endif
   _puts("Initializing SD card.\r\n");
   if (SD.begin(SDINIT)) {
