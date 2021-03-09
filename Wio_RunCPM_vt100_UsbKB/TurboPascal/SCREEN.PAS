@@ -3,19 +3,13 @@ program SCREEN;
 var
   Mode, v, i: Integer;
 begin
-  if (ParamCount = 0) then
-    Mode := 0
-  else
-    begin
-      Val(ParamStr(1), v, i);
-      if i = 0 then
-        begin
-          if (v < 0) then v := 0;
-          Mode := v and $1F;
-        end
-      else
-        Mode := 0;  
-    end;  
+  Mode := 0;
+  if ParamCount > 0 then
+  begin
+    Val(ParamStr(1), v, i);
+    if (i = 0) and (v >= 0) then
+      Mode := v;  
+  end;    
 
   { +---+----+----+---------+----------+-------+ }
   { |   |bit4|bit3|bit2     |bit1      |bit0   | }

@@ -34,10 +34,4 @@
 // I2C キーボードタイプ
 #define USE_FACES                 // Faces Keyboard を使う
 
-// デバッグ出力 (エスケープシーケンス)
-//#define USE_DEBUGESCSEQ           // 無効なエスケープシーケンスをデバッグ出力する
-
-// デバッグ出力 (生データ)
-//#define USE_OUTPUTRAW             // 送られてきた生データをデバッグ出力する
-
 #endif

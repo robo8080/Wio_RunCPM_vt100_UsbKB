@@ -32,6 +32,9 @@ uint16 hostbdos(uint16 dmaaddr) {
       ROTATION_ANGLE = _RamRead(i) % 4;
       initScreenEx(ROTATION_ANGLE);
       return (0);
+    case 10: // Debug Serial
+      DS.value = _RamRead(i);
+      return (0);
     default:
       return (0x0000);
   }
