@@ -58,8 +58,9 @@ static lgfx::Panel_ILI9341 panel;
 #include "settings/M5Stack_FacesKB.h"
 //#include "settings/M5Stack_CardKB.h"
 #else
-#include "settings/WioTerminal_USBKB.h"
+//#include "settings/WioTerminal_USBKB.h"
 //#include "settings/WioTerminal_CardKB.h"
+#include "settings/WioTerminal_SerialKB.h"
 #endif
 
 //-----------------------------------------------------------------------
@@ -89,6 +90,11 @@ uint16_t ROTATION_ANGLE = 0;  // 画面回転 (0..3)
 #undef USE_I2CKB
 #endif
 
+#if defined USE_SERIALKB
+#undef USE_I2CKB
+#undef USE_USBKB
+#endif
+
 #if !defined ESP32
 #undef USE_FACES
 #endif
@@ -103,8 +109,13 @@ uint16_t ROTATION_ANGLE = 0;  // 画面回転 (0..3)
 #endif
 #include <Wire.h>
 #else
+#if defined USE_USBKB
 #define KBD_TYPE  "USB KB"
 #include <KeyboardController.h>
+#else
+#define KBD_TYPE  "Serial KB"
+#include <wiring_private.h>
+#endif
 #endif
 
 // ヘッダファイル
@@ -401,9 +412,25 @@ PROGMEM const unsigned long TIMER_PERIOD = 200000; // 200ms
 
 
 // キーボード制御用
-#if !defined USE_I2CKB
+#if !defined USE_I2CKB && !defined USE_SERIALKB
 USBHost usb;
 KeyboardController keyboard(usb);
+#endif
+
+#if defined USE_SERIALKB
+static Uart Serial3(&sercom3, PIN_WIRE_SCL, PIN_WIRE_SDA, SERCOM_RX_PAD_1, UART_TX_PAD_0);
+void SERCOM3_0_Handler() {
+  Serial3.IrqHandler();
+}
+void SERCOM3_1_Handler() {
+  Serial3.IrqHandler();
+}
+void SERCOM3_2_Handler() {
+  Serial3.IrqHandler();
+}
+void SERCOM3_3_Handler() {
+  Serial3.IrqHandler();
+}
 #endif
 
 // カーソル用タイマー
@@ -448,7 +475,7 @@ void resetSystem() {
 #endif
 }
 
-#if !defined USE_I2CKB
+#if !defined USE_I2CKB && !defined USE_SERIALKB
 // イベント: キーを押した
 void keyPressed() {
   //printKey();
@@ -483,12 +510,19 @@ void printKey() {
 #endif
   needCursorUpdate = (c > 0x00) && (c < 0x80);
 #else
+#if defined USE_USBKB
   c = keyboard.getKey();
   int key = keyboard.getOemKey();
   int mod = keyboard.getModifiers();
   needCursorUpdate = (c > 0x00) && (c < 0x80);
   if ((key == 0x29) && (mod == 4)) // Alt-Esc (カナ変換用)
     needCursorUpdate = false;
+#else  //Serial KB
+  if(Serial3.available()) {
+    c = Serial3.read(); // receive a byte as characterif
+    needCursorUpdate = (c > 0x00) && (c < 0x80);
+  }
+#endif
 #endif
 
   if (needCursorUpdate) {
@@ -621,6 +655,7 @@ void printKey() {
     }
 #endif
 #else
+#if defined USE_USBKB
     switch (key) {
       case 0x29:          // Alt-Esc
         if (mod == 4) {
@@ -671,6 +706,7 @@ void printKey() {
       default:
         needCursorUpdate = false;
     }
+#endif
 #endif
   }
 }
@@ -2332,6 +2368,11 @@ void setup() {
   Wire.begin();    // Define(SDA, SCL)
 #endif
 #endif
+#if defined USE_SERIALKB
+  Serial3.begin(115200);
+  pinPeripheral(PIN_WIRE_SCL, PIO_SERCOM_ALT);
+  pinPeripheral(PIN_WIRE_SDA, PIO_SERCOM_ALT);
+#endif
   DebugSerial.begin(SERIALSPD);
   delay(500);
   xQueue = xQueueCreate( QUEUE_LENGTH, sizeof( uint8_t ) );
@@ -2499,7 +2540,7 @@ void loop2() {
   now = rtc.now();
 #endif
 
-#if defined USE_I2CKB
+#if defined USE_I2CKB || defined USE_SERIALKB
   printKey();
 #else
   // USB
