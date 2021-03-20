@@ -2310,7 +2310,11 @@ void initScreen(uint8_t r) {
   MAX_SP_Y    = SP_H - 1;               // ピクセルスクリーン最大縦位置
   MARGIN_LEFT = (RSP_W - SP_W) / 2;     // 左マージン
   MARGIN_TOP  = (RSP_H - SP_H) / 2;     // 上マージン
-  M_BOTTOM = MAX_SC_Y;
+  M_BOTTOM    = MAX_SC_Y;
+
+#if defined CCP_INTERNAL
+  pgSize      = SC_H - 2;               // TYPE コマンドでページ送りする行数
+#endif
 
 #if defined ESP32
   TC.attach(TIMER_PERIOD, handle_timer); // 200ms
