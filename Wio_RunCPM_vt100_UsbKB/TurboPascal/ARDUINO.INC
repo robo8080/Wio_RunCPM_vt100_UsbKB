@@ -50,6 +50,15 @@ const
     BDos(231, Addr(func)); { hostbdos }
   end; {of procedure setRotation}
 
+  procedure setDebugSerial(m: Byte);
+  var
+    func: array [0..1] of Byte;
+  begin
+    func[0] := 10;
+    func[1] := m;
+    BDos(231, Addr(func)); { hostbdos }
+  end; {of procedure setDebugSerial}
+
   (*** Board BDOS ***)
 
   function getJoy2Key: Byte;
@@ -170,3 +179,4 @@ const
   begin
     hostOS := BDosHL(250);
   end; {of function hostOS}
+

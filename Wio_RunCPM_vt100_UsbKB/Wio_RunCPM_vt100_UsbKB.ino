@@ -107,6 +107,24 @@ uint16_t ROTATION_ANGLE = 0;  // 画面回転 (0..3)
 #include <KeyboardController.h>
 #endif
 
+// デバッグシリアル
+struct TDEBUG_SERIAL {
+  bool ALLOW_INPUT : 1;
+  bool Reserved1 : 1;
+  bool Reserved2 : 1;
+  bool Reserved3 : 1;
+  bool OUTPUT_RAW : 1;
+  bool OUTPUT_INVALID_ESCSEQ : 1;
+  bool Reserved6 : 1;
+  bool Reserved7 : 1;
+};
+union DEBUG_SERIAL {
+  uint8_t value;
+  struct TDEBUG_SERIAL Flgs;
+};
+
+union DEBUG_SERIAL DS = {0b00000000};
+
 // ヘッダファイル
 #include "globals.h"
 
@@ -208,8 +226,7 @@ PROGMEM const int ROT_TBL[4][4] = {{0, 1, 2, 3}, {1, 3, 0, 2}, {3, 2, 1, 0}, {2,
 #else
 #define DebugSerial Serial1
 #endif
-
-#define SERIALSPD 115200
+#define SERIALSPD 9600
 
 // LED 制御用ピン
 /*
@@ -467,7 +484,6 @@ void printKey() {
 #if defined USE_I2CKB
   if (Wire.requestFrom(I2C_KB_ADDR, 1))
     c = Wire.read();
-
 #if defined USE_FACES
   // Faces Keyboard は Enter で CRLF を返す
   if (c == 0x0d) {
@@ -864,9 +880,8 @@ void clearParams(em m) {
 // 文字描画
 void printChar(char c) {
 
-#if defined USE_OUTPUTRAW
-  DebugSerial.print(c);
-#endif
+  if (DS.Flgs.OUTPUT_RAW)
+    DebugSerial.print(c);
 
   // [ESC] キー
   if (c == 0x1b) {
@@ -1474,16 +1489,16 @@ void restoreCursor() {
 
 // DECKPAM (Keypad Application Mode): アプリケーションキーパッドモードにセット
 void keypadApplicationMode() {
-#if defined USE_DEBUGESCSEQ
+  if (!DS.Flgs.OUTPUT_INVALID_ESCSEQ)
+    return;
   DebugSerial.println(F("Unimplement: keypadApplicationMode"));
-#endif
 }
 
 // DECKPNM (Keypad Numeric Mode): 数値キーパッドモードにセット
 void keypadNumericMode() {
-#if defined USE_DEBUGESCSEQ
+  if (!DS.Flgs.OUTPUT_INVALID_ESCSEQ)
+    return;
   DebugSerial.println(F("Unimplement: keypadNumericMode"));
-#endif
 }
 
 // IND (Index): カーソルを一行下へ移動
@@ -1780,10 +1795,10 @@ void setMode(int16_t *vals, int16_t nVals) {
         adm3aMode(true);
         break;
       default:
-#if defined USE_DEBUGESCSEQ
-        DebugSerial.print(F("Unimplement: setMode "));
-        DebugSerial.println(String(vals[i], DEC));
-#endif
+        if (DS.Flgs.OUTPUT_INVALID_ESCSEQ) {
+          DebugSerial.print(F("Unimplement: setMode "));
+          DebugSerial.println(String(vals[i], DEC));
+        }
         break;
     }
   }
@@ -1810,10 +1825,10 @@ void decSetMode(int16_t *vals, int16_t nVals) {
         textCursorEnableMode(true);
         break;
       default:
-#if defined USE_DEBUGESCSEQ
-        DebugSerial.print(F("Unimplement: decSetMode "));
-        DebugSerial.println(String(vals[i], DEC));
-#endif
+        if (DS.Flgs.OUTPUT_INVALID_ESCSEQ) {
+          DebugSerial.print(F("Unimplement: decSetMode "));
+          DebugSerial.println(String(vals[i], DEC));
+        }  
         break;
     }
   }
@@ -1836,10 +1851,10 @@ void resetMode(int16_t *vals, int16_t nVals) {
         adm3aMode(false);
         break;
       default:
-#if defined USE_DEBUGESCSEQ
-        DebugSerial.print(F("Unimplement: resetMode "));
-        DebugSerial.println(String(vals[i], DEC));
-#endif
+        if (DS.Flgs.OUTPUT_INVALID_ESCSEQ) {
+          DebugSerial.print(F("Unimplement: resetMode "));
+          DebugSerial.println(String(vals[i], DEC));
+        }  
         break;
     }
   }
@@ -1866,10 +1881,10 @@ void decResetMode(int16_t *vals, int16_t nVals) {
         textCursorEnableMode(false);
         break;
       default:
-#if defined USE_DEBUGESCSEQ
-        DebugSerial.print(F("Unimplement: decResetMode "));
-        DebugSerial.println(String(vals[i], DEC));
-#endif
+        if (DS.Flgs.OUTPUT_INVALID_ESCSEQ) {
+          DebugSerial.print(F("Unimplement: decResetMode "));
+          DebugSerial.println(String(vals[i], DEC));
+        }  
         break;
     }
   }
@@ -2094,30 +2109,30 @@ void invokeConfidenceTests(uint8_t m) {
 
 // DECDHL (Double Height Line): カーソル行を倍高、倍幅、トップハーフへ変更
 void doubleHeightLine_TopHalf() {
-#if defined USE_DEBUGESCSEQ
+  if (!DS.Flgs.OUTPUT_INVALID_ESCSEQ) 
+    return;
   DebugSerial.println(F("Unimplement: doubleHeightLine_TopHalf"));
-#endif
 }
 
 // DECDHL (Double Height Line): カーソル行を倍高、倍幅、ボトムハーフへ変更
 void doubleHeightLine_BotomHalf() {
-#if defined USE_DEBUGESCSEQ
+  if (!DS.Flgs.OUTPUT_INVALID_ESCSEQ) 
+    return;
   DebugSerial.println(F("Unimplement: doubleHeightLine_BotomHalf"));
-#endif
 }
 
 // DECSWL (Single-width Line): カーソル行を単高、単幅へ変更
 void singleWidthLine() {
-#if defined USE_DEBUGESCSEQ
+  if (!DS.Flgs.OUTPUT_INVALID_ESCSEQ) 
+    return;
   DebugSerial.println(F("Unimplement: singleWidthLine"));
-#endif
 }
 
 // DECDWL (Double-Width Line): カーソル行を単高、倍幅へ変更
 void doubleWidthLine() {
-#if defined USE_DEBUGESCSEQ
+  if (!DS.Flgs.OUTPUT_INVALID_ESCSEQ) 
+    return;
   DebugSerial.println(F("Unimplement: doubleWidthLine"));
-#endif
 }
 
 // DECALN (Screen Alignment Display): 画面を文字‘E’で埋める
@@ -2135,9 +2150,9 @@ void screenAlignmentDisplay() {
 
 // G0 文字コードの設定
 void setG0charset(char c) {
-#if defined USE_DEBUGESCSEQ
+  if (!DS.Flgs.OUTPUT_INVALID_ESCSEQ) 
+    return;
   DebugSerial.println(F("Unimplement: setG0charset"));
-#endif
 }
 
 // "(" G1 Sets Sequence
@@ -2145,9 +2160,9 @@ void setG0charset(char c) {
 
 // G1 文字コードの設定
 void setG1charset(char c) {
-#if defined USE_DEBUGESCSEQ
+  if (!DS.Flgs.OUTPUT_INVALID_ESCSEQ) 
+    return;
   DebugSerial.println(F("Unimplement: setG1charset"));
-#endif
 }
 
 // "G" SVA Sets Sequence
@@ -2189,12 +2204,13 @@ void unknownSequence(em m, char c) {
       s = s + " %";
       break;
   }
-#if defined USE_DEBUGESCSEQ
-  DebugSerial.print(F("Unknown: "));
-  DebugSerial.print(s);
-  DebugSerial.print(F(" "));
-  DebugSerial.print(c);
-#endif
+
+  if (DS.Flgs.OUTPUT_INVALID_ESCSEQ) {
+    DebugSerial.print(F("Unknown: "));
+    DebugSerial.print(s);
+    DebugSerial.print(F(" "));
+    DebugSerial.print(c);
+  }
 }
 
 // タイマーハンドラ
@@ -2294,7 +2310,11 @@ void initScreen(uint8_t r) {
   MAX_SP_Y    = SP_H - 1;               // ピクセルスクリーン最大縦位置
   MARGIN_LEFT = (RSP_W - SP_W) / 2;     // 左マージン
   MARGIN_TOP  = (RSP_H - SP_H) / 2;     // 上マージン
-  M_BOTTOM = MAX_SC_Y;
+  M_BOTTOM    = MAX_SC_Y;
+
+#if defined CCP_INTERNAL
+  pgSize      = SC_H - 2;               // TYPE コマンドでページ送りする行数
+#endif
 
 #if defined ESP32
   TC.attach(TIMER_PERIOD, handle_timer); // 200ms
@@ -2351,10 +2371,11 @@ void setup() {
   // LCD の初期化
   lcd.init();
   lcd.setBrightness(255);
+
 #if defined ESP32
   dacWrite(25, 0); // Speaker OFF(M5Stack Faces装着時のノイズ対策)
 #else
-  lcd.startWrite();
+  lcd.startWrite();  
 #endif
   lcd.setColorDepth(16);
   initScreenEx(ROTATION_ANGLE);
@@ -2383,10 +2404,10 @@ void setup() {
 
 #if !defined USE_I2CKB
   // キーボードの初期化
-#if defined USE_DEBUGESCSEQ
-  if (usb.Init())
-    DebugSerial.println(F("USB host did not start."));
-#endif
+    if (usb.Init()) {
+      if (DS.Flgs.OUTPUT_INVALID_ESCSEQ)
+        DebugSerial.println(F("USB host did not start."));
+    }  
   delay(20);
   digitalWrite(PIN_USB_HOST_ENABLE, LOW);
   digitalWrite(OUTPUT_CTR_5V, HIGH);
@@ -2505,6 +2526,14 @@ void loop2() {
   // USB
   usb.Task();
 #endif
+
+  if (DS.Flgs.ALLOW_INPUT) {
+    while (DebugSerial.available()) {
+      char c = DebugSerial.read();
+      xQueueSend(xQueue, &c, 0);
+      return;
+    }
+  }
 
   // スイッチ
 #if defined HW_5S
