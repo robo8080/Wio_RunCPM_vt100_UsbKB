@@ -2528,7 +2528,7 @@ void loop2() {
 #endif
 
   if (DS.Flgs.ALLOW_INPUT) {
-    while (DebugSerial.available()) {
+    if (DebugSerial.available()) {
       char c = DebugSerial.read();
       xQueueSend(xQueue, &c, 0);
       return;
