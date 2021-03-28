@@ -14,12 +14,22 @@ const
   var
     i, Freq: Integer;
   begin
-    { The formula is for Wio Terminal }
     Freq := systemFrequency div 10;
+
+    { for Wio Terminal }
     if v < 1638 then
       i := v * Freq div 7
     else
       i := v div 10 * Freq div 7 * 10;
+      
+    { for M5Stack }
+{
+    if v < 869 then
+      i := v * Freq div 46 * 5
+    else
+      i := v div 10 * Freq div 23 * 25;
+}
+
     Delay(i);
   end; {of procedure Delay2}
 
