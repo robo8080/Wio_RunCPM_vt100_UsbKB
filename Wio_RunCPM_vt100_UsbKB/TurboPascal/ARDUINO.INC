@@ -189,4 +189,3 @@ const
   begin
     hostOS := BDosHL(250);
   end; {of function hostOS}
-
