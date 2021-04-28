@@ -58,6 +58,11 @@ const
     Write(_EGR, x, ';', y, ';', w, 'H');
   end;
 
+  procedure DrawEllipseArc(x, y, r0x, r1x, r0y, r1y, st, en: Integer);
+  begin
+    Write(_EGR, x, ';', y, ';', r0x, ';', r1x, ';', r0y, ';', r1y, ';' st, ';', en, 'I');
+  end;
+
   procedure DrawFastVLine(x, y, h: Integer);
   begin
     Write(_EGR, x, ';', y, ';', h, 'V');
@@ -101,6 +106,11 @@ const
   procedure FillEllipse(x, y, rx, ry: Integer);
   begin
     Write(_EGR, x, ';', y, ';', rx, ';', ry, 'e');
+  end;
+
+  procedure FillEllipseArc(x, y, r0x, r1x, r0y, r1y, st, en: Integer);
+  begin
+    Write(_EGR, x, ';', y, ';', r0x, ';', r1x, ';', r0y, ';', r1y, ';' st, ';', en, 'i');
   end;
 
   procedure FillRoundRect(x, y, w, h, r: Integer);

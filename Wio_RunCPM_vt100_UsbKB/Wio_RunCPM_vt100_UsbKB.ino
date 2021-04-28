@@ -1211,12 +1211,12 @@ void printChar(char c) {
         case 'b':
           // playBeep
           switch (nVals) {
-            case 2:
-              vals[2] = 583;
-            case 1:
-              vals[1] = 12;
             case 0:
               vals[0] = 1;
+            case 1:
+              vals[1] = 12;
+            case 2:
+              vals[2] = 583;
           }
           playBeep(vals[0], vals[1], vals[2]);
           break;
@@ -1240,14 +1240,6 @@ void printChar(char c) {
           // setColor
           lcd.setColor(lcd.color565(vals[0], vals[1], vals[2]));
           break;
-        case 'H':
-          // drawFastHLine
-          lcd.drawFastHLine(vals[0], vals[1], vals[2]);
-          break;
-        case 'h':
-          // カーソル表示/非表示
-          textCursorEnableMode((nVals == 0) || (vals[0] == 0));
-          break;
         case 'G':
           // フォント書き換え
           if (nVals > 0)
@@ -1257,6 +1249,22 @@ void printChar(char c) {
           // フォント復帰
           if (nVals > 0)
             restoreChar(vals);
+          break;
+        case 'H':
+          // drawFastHLine
+          lcd.drawFastHLine(vals[0], vals[1], vals[2]);
+          break;
+        case 'h':
+          // カーソル表示/非表示
+          textCursorEnableMode((nVals == 0) || (vals[0] == 0));
+          break;
+        case 'I':
+          // drawEllipseArc
+          lcd.drawEllipseArc(vals[0], vals[1], vals[2], vals[3], vals[4], vals[5], vals[6], vals[7]);
+          break;
+        case 'i':
+          // fillEllipseArc
+          lcd.fillEllipseArc(vals[0], vals[1], vals[2], vals[3], vals[4], vals[5], vals[6], vals[7]);
           break;
         case 'K':
           // setBaseColor
@@ -2528,7 +2536,7 @@ void loop2() {
 #endif
 
   if (DS.Flgs.ALLOW_INPUT) {
-    while (DebugSerial.available()) {
+    if (DebugSerial.available()) {
       char c = DebugSerial.read();
       xQueueSend(xQueue, &c, 0);
       return;
