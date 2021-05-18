@@ -127,10 +127,10 @@ void _ccp_printfcb(uint16 fcb, uint8 compact) {
 }
 
 // Initializes the FCB
-void _ccp_initFCB(uint16 address) {
+void _ccp_initFCB(uint16 address, uint8 size) {
 	uint8 i;
 
-	for (i = 0; i < 36; ++i)
+	for (i = 0; i < size; ++i)
 		_RamWrite(address + i, 0x00);
 	for (i = 0; i < 11; ++i) {
 		_RamWrite(address + 1 + i, 0x20);
@@ -162,7 +162,7 @@ uint8 _ccp_nameToFCB(uint16 fcb) {
 			++pbuf; --blen;
 			if (ch == '*')
 				pad = '?';
-			if (pad == '?' || ch == '?') {
+			if (pad == '?') {
 				ch = pad;
 				n = n | 0x80;	// Name is not unique
 			}
@@ -187,7 +187,7 @@ uint8 _ccp_nameToFCB(uint16 fcb) {
 			++pbuf; --blen;
 			if (ch == '*')
 				pad = '?';
-			if (pad == '?' || ch == '?') {
+			if (pad == '?') {
 				ch = pad;
 				n = n | 0x80;	// Name is not unique
 			}
@@ -577,7 +577,7 @@ void _ccp(void) {
 			if (_RamRead(pbuf) == ';')					// Found a comment line
 				continue;
 
-			_ccp_initFCB(CmdFCB);						// Initializes the command FCB
+			_ccp_initFCB(CmdFCB, 36);					// Initializes the command FCB
 
 			perr = pbuf;								// Saves the pointer in case there's an error
 			if (_ccp_nameToFCB(CmdFCB) > 8) {			// Extracts the command from the buffer
@@ -597,13 +597,13 @@ void _ccp(void) {
 
 			_RamWrite(defDMA, blen);					// Move the command line at this point to 0x0080
 			for (i = 0; i < blen; ++i) {
-				_RamWrite(defDMA + i + 1, _RamRead(pbuf + i));
+				_RamWrite(defDMA + i + 1, toupper(_RamRead(pbuf + i)));
 			}
 			while (i++ < 127)							// "Zero" the rest of the DMA buffer
 				_RamWrite(defDMA + i, 0);
 
-			_ccp_initFCB(ParFCB);						// Initializes the parameter FCB
-			_ccp_initFCB(SecFCB);						// Initializes the secondary FCB
+			_ccp_initFCB(ParFCB, 18);					// Initializes the parameter FCB
+			_ccp_initFCB(SecFCB, 18);					// Initializes the secondary FCB
 
 			while (_RamRead(pbuf) == ' ' && blen) {		// Skips any leading spaces
 				++pbuf; --blen;
@@ -642,6 +642,7 @@ void _ccp(void) {
 				Status = 1;			break;
 			case 9:		// PAGE
 				i = _ccp_page();	break;
+				// External/Lua commands
 			case 255:	// It is an external command
 				i = _ccp_ext();
 #ifdef HASLUA
