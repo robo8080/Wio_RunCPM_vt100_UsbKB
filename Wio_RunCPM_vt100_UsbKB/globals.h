@@ -6,6 +6,9 @@
 #include <ctype.h>
 #endif
 
+/* Definition for enabling incrementing the R register for each M1 cycle */
+#define DO_INCR
+
 /* Definitions for enabling PUN: and LST: devices */
 #define USE_PUN	// The pun.txt and lst.txt files will appear on drive A: user 0
 #define USE_LST
@@ -19,8 +22,8 @@
 #define LogName "RunCPM.log"
 
 /* RunCPM version for the greeting header */
-#define VERSION	"5.4"
-#define VersionBCD 0x54
+#define VERSION	"5.5"
+#define VersionBCD 0x55
 
 /* Definition of which CCP to use (must define only one) */
 #define CCP_INTERNAL	// If this is defined, an internal CCP will emulated
