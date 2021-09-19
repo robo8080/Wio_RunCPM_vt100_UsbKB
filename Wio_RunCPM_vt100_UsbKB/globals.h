@@ -6,24 +6,30 @@
 #include <ctype.h>
 #endif
 
+/* Definition for enabling incrementing the R register for each M1 cycle */
+#define DO_INCR
+
 /* Definitions for enabling PUN: and LST: devices */
 #define USE_PUN	// The pun.txt and lst.txt files will appear on drive A: user 0
 #define USE_LST
 
 /* Definitions for file/console based debugging */
-//#define DEBUG			// Enables the internal debugger (enabled by default on vstudio debug builds)
-//#define iDEBUG		// Enables instruction logging onto a file (for development debug only)
-//#define DEBUGLOG		// Writes extensive call trace information to RunCPM.log
-//#define CONSOLELOG	// Writes debug information to console instead of file
-//#define LOGONLY 22	// If defined will log only this BDOS (or BIOS) function number
+//#define DEBUG				// Enables the internal debugger (enabled by default on vstudio debug builds)
+//#define iDEBUG			// Enables instruction logging onto iDebug.log (for development debug only)
+//#define DEBUGLOG			// Writes extensive call trace information to RunCPM.log
+//#define CONSOLELOG		// Writes debug information to console instead of file
+//#define LOGBIOS_NOT 01	// If defined will not log this BIOS function number
+//#define LOGBIOS_ONLY 02	// If defines will log only this BIOS function number
+//#define LOGBDOS_NOT 06	// If defined will not log this BDOS function number
+//#define LOGBDOS_ONLY 22	// If defines will log only this BDOS function number
 #define LogName "RunCPM.log"
 
 /* RunCPM version for the greeting header */
-#define VERSION	"5.4"
-#define VersionBCD 0x54
+#define VERSION	"5.6"
+#define VersionBCD 0x56
 
 /* Definition of which CCP to use (must define only one) */
-#define CCP_INTERNAL	// If this is defined, an internal CCP will emulated
+#define CCP_INTERNAL		// If this is defined, an internal CCP will emulated
 //#define CCP_DR
 //#define CCP_CCPZ
 //#define CCP_ZCPR2
@@ -33,8 +39,8 @@
 /* Definition of the CCP memory information */
 //
 #ifdef CCP_INTERNAL
-#define CCPname		"INTERNAL v2.1"			// Will use the CCP from ccp.h
-#define VersionCCP	0x21					// 0x10 and above reserved for Internal CCP
+#define CCPname		"INTERNAL v2.3"			// Will use the CCP from ccp.h
+#define VersionCCP	0x23					// 0x10 and above reserved for Internal CCP
 #define BatchFCB	(tmpFCB + 36)
 #define CCPaddr		(BDOSjmppage-0x0800)
 #endif
@@ -157,7 +163,7 @@ typedef unsigned int    uint32;
 	#define _RamWrite16(a, v)	RAM[a] = (v) & 0xff; RAM[a + 1] = (v) >> 8
 #endif
 
-//// Size of the allocated pages (Minimum size = 1 page = 256 bytes)
+// Size of the allocated pages (Minimum size = 1 page = 256 bytes)
 
 // BIOS Pages (always on the top of memory)
 #define BIOSpage	(MEMSIZE - 256)
@@ -185,7 +191,7 @@ static uint8	userCode = 0;		// Current user code
 static uint16	roVector = 0;
 static uint16	loginVector = 0;
 static uint8	allUsers = FALSE;	// true when dr is '?' in BDOS search first
-static uint8	allExtents = FALSE; // true when ex is '?' in BDOS search first
+static uint8	allExtents = FALSE;	// true when ex is '?' in BDOS search first
 static uint8	currFindUser = 0;	// user number of current directory in BDOS search first on all user numbers
 static uint8	blockShift;			// disk allocation block shift
 static uint8	blockMask;			// disk allocation block mask
@@ -194,12 +200,12 @@ static uint16	firstBlockAfterDir;	// first allocation block after directory
 static uint16	numAllocBlocks;		// # of allocation blocks on disk
 static uint8	extentsPerDirEntry;	// # of logical (16K) extents in a directory entry
 #define logicalExtentBytes (16*1024UL)
-static uint16	physicalExtentBytes;	// # bytes described by 1 directory entry
+static uint16	physicalExtentBytes;// # bytes described by 1 directory entry
 
 #define tohex(x)	((x) < 10 ? (x) + 48 : (x) + 87)
 
 /* Definition of externs to prevent precedence compilation errors */
-#ifdef __cplusplus
+#ifdef __cplusplus // If building on Arduino
 extern "C"
 {
 #endif
@@ -219,7 +225,7 @@ extern "C"
 
 	extern void _puts(const char* str);
 
-#ifdef __cplusplus
+#ifdef __cplusplus // If building on Arduino
 }
 #endif
 

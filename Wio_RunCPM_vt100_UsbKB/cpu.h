@@ -29,6 +29,13 @@ char iLogBuffer[256];
 const char* iLogTxt;
 #endif
 
+/* increase R by val (to correctly implement refresh counter) if enabled */
+#ifdef DO_INCR
+#define INCR(val) IR = (IR & ~0x3f) | ((IR + (val)) & 0x3f)
+#else
+#define INCR(val) ;
+#endif
+
 /*
 	Functions needed by the soft CPU implementation
 */
@@ -1457,13 +1464,13 @@ void randomizeR() {
     rr = rand() & 0x7f;
     IR = (IR & 0xffffff80) | rr;
 }
-
+/*
 static inline void updateR() {
     int rr = 0;
     rr = ((IR & 0x7f) + 1) & 0x7f;
     IR = (IR & 0xffffff80) | rr;
 }
-
+*/
 static inline void Z80run(void) {
 	register uint32 temp = 0;
 	register uint32 acu;
@@ -1489,8 +1496,10 @@ static inline void Z80run(void) {
 		if (Debug)
 			Z80debug();
 #endif
-    updateR();
+
+//		updateR();
 		PCX = PC;
+		INCR(1); /* Add one M1 cycle to refresh counter */
 
 #ifdef iDEBUG
 		iLogFile = fopen("iDump.log", "a");
@@ -2587,6 +2596,7 @@ static inline void Z80run(void) {
 			break;
 
 		case 0xcb:      /* CB prefix */
+			INCR(1); /* Add one M1 cycle to refresh counter */
 			adr = HL;
 			switch ((op = GET_BYTE(PC)) & 7) {
 
@@ -2821,6 +2831,7 @@ static inline void Z80run(void) {
 			break;
 
 		case 0xdd:      /* DD prefix */
+			INCR(1); /* Add one M1 cycle to refresh counter */
 			switch (RAM_PP(PC)) {
 
 			case 0x09:      /* ADD IX,BC */
@@ -3485,6 +3496,7 @@ static inline void Z80run(void) {
 			break;
 
 		case 0xed:      /* ED prefix */
+			INCR(1); /* Add one M1 cycle to refresh counter */
 			switch (RAM_PP(PC)) {
 
 			case 0x40:      /* IN B,(C) */
@@ -3875,6 +3887,7 @@ static inline void Z80run(void) {
 				if (BC == 0)
 					BC = 0x10000;
 				do {
+					INCR(2); /* Add two M1 cycles to refresh counter */
 					acu = RAM_PP(HL);
 					PUT_BYTE_PP(DE, acu);
 				} while (--BC);
@@ -3888,6 +3901,7 @@ static inline void Z80run(void) {
 				if (BC == 0)
 					BC = 0x10000;
 				do {
+					INCR(1); /* Add one M1 cycle to refresh counter */
 					temp = RAM_PP(HL);
 					op = --BC != 0;
 					sum = acu - temp;
@@ -3906,6 +3920,7 @@ static inline void Z80run(void) {
 				if (temp == 0)
 					temp = 0x100;
 				do {
+					INCR(1); /* Add one M1 cycle to refresh counter */
 					acu = cpu_in(LOW_REGISTER(BC));
 					PUT_BYTE(HL, acu);
 					++HL;
@@ -3920,6 +3935,7 @@ static inline void Z80run(void) {
 				if (temp == 0)
 					temp = 0x100;
 				do {
+					INCR(1); /* Add one M1 cycle to refresh counter */
 					acu = GET_BYTE(HL);
 					cpu_out(LOW_REGISTER(BC), acu);
 					++HL;
@@ -3934,6 +3950,7 @@ static inline void Z80run(void) {
 				if (BC == 0)
 					BC = 0x10000;
 				do {
+					INCR(2); /* Add two M1 cycles to refresh counter */
 					acu = RAM_MM(HL);
 					PUT_BYTE_MM(DE, acu);
 				} while (--BC);
@@ -3947,6 +3964,7 @@ static inline void Z80run(void) {
 				if (BC == 0)
 					BC = 0x10000;
 				do {
+					INCR(1); /* Add one M1 cycle to refresh counter */
 					temp = RAM_MM(HL);
 					op = --BC != 0;
 					sum = acu - temp;
@@ -3965,6 +3983,7 @@ static inline void Z80run(void) {
 				if (temp == 0)
 					temp = 0x100;
 				do {
+					INCR(1); /* Add one M1 cycle to refresh counter */
 					acu = cpu_in(LOW_REGISTER(BC));
 					PUT_BYTE(HL, acu);
 					--HL;
@@ -3979,6 +3998,7 @@ static inline void Z80run(void) {
 				if (temp == 0)
 					temp = 0x100;
 				do {
+					INCR(1); /* Add one M1 cycle to refresh counter */
 					acu = GET_BYTE(HL);
 					cpu_out(LOW_REGISTER(BC), acu);
 					--HL;
@@ -4058,6 +4078,7 @@ static inline void Z80run(void) {
 			break;
 
 		case 0xfd:      /* FD prefix */
+			INCR(1); /* Add one M1 cycle to refresh counter */
 			switch (RAM_PP(PC)) {
 
 			case 0x09:      /* ADD IY,BC */
